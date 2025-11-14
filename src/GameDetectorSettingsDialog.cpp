@@ -1,0 +1,227 @@
+#include "GameDetectorSettingsDialog.h"
+#include "GameDetector.h"
+#include "IconProvider.h"
+#include "ConfigManager.h"
+
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QTableWidget>
+#include <QHeaderView>
+#include <QFrame>
+#include <QStyle>
+#include <QDesktopServices>
+#include <QFileDialog>
+#include <obs-data.h>
+
+const QUrl TOKEN_GENERATOR_URL("https://twitchtokengenerator.com/quick/GYXoPVcdvv");
+
+GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialog(parent)
+{
+	setWindowTitle(obs_module_text("Settings.WindowTitle"));
+	setMinimumSize(600, 500);
+
+	QVBoxLayout *mainLayout = new QVBoxLayout(this);
+
+	// --- Seção da Tabela de Jogos ---
+	mainLayout->addWidget(new QLabel(obs_module_text("Settings.GameList")));
+
+	manualGamesTable = new QTableWidget();
+	manualGamesTable->setColumnCount(3);
+	manualGamesTable->setHorizontalHeaderLabels(QStringList() << obs_module_text("Table.Header.Name") << obs_module_text("Table.Header.Executable") << "Caminho");
+	manualGamesTable->horizontalHeader()->setStretchLastSection(true);
+	// Oculta a coluna de caminho, ela é apenas para uso interno
+	manualGamesTable->setColumnHidden(2, true);
+	mainLayout->addWidget(manualGamesTable);
+
+	QHBoxLayout *tableButtonsLayout = new QHBoxLayout();
+	addGameButton = new QPushButton(obs_module_text("Settings.AddGame"));
+	removeGameButton = new QPushButton(obs_module_text("Settings.RemoveGame"));
+	clearTableButton = new QPushButton(obs_module_text("Settings.ClearList"));
+	tableButtonsLayout->addWidget(addGameButton);
+	tableButtonsLayout->addWidget(removeGameButton);
+	tableButtonsLayout->addWidget(clearTableButton);
+	tableButtonsLayout->addStretch(1);
+	mainLayout->addLayout(tableButtonsLayout);
+
+	rescanButton = new QPushButton(obs_module_text("Settings.ScanGames"));
+	rescanButton->setProperty("baseText", rescanButton->text());
+	mainLayout->addWidget(rescanButton);
+	connect(&GameDetector::get(), &GameDetector::gameFoundDuringScan, this, [=](int totalFound) {
+		QString base = rescanButton->property("baseText").toString();
+		rescanButton->setText(QString("%1 (%2)").arg(base).arg(totalFound));
+	});
+
+	mainLayout->addWidget(new QLabel(obs_module_text("Settings.ScanGames.HelpText")));
+
+    QFrame *separator2 = new QFrame();
+	separator2->setFrameShape(QFrame::HLine);
+	separator2->setFrameShadow(QFrame::Sunken);
+	mainLayout->addWidget(separator2);
+
+	// --- Seção do Token ---
+	QHBoxLayout *tokenHeaderLayout = new QHBoxLayout();
+	tokenHeaderLayout->addWidget(new QLabel(obs_module_text("Settings.Token")));
+	tokenHeaderLayout->addStretch(1);
+	QPushButton *generateTokenButton = new QPushButton(obs_module_text("Settings.GenerateToken"));
+	tokenHeaderLayout->addWidget(generateTokenButton);
+	mainLayout->addLayout(tokenHeaderLayout);
+
+	tokenInput = new QLineEdit();
+	tokenInput->setEchoMode(QLineEdit::Password);
+	tokenInput->setPlaceholderText(obs_module_text("Settings.Token.Placeholder"));
+	mainLayout->addWidget(tokenInput);
+
+	mainLayout->addWidget(new QLabel(obs_module_text("Settings.Token.HelpText")));
+
+	mainLayout->addStretch(1);
+
+	// --- Botões OK/Cancel ---
+	QHBoxLayout *dialogButtonsLayout = new QHBoxLayout();
+	okButton = new QPushButton(obs_module_text("OK"));
+	cancelButton = new QPushButton(obs_module_text("Cancel"));
+	dialogButtonsLayout->addStretch(1);
+	dialogButtonsLayout->addWidget(okButton);
+	dialogButtonsLayout->addWidget(cancelButton);
+	mainLayout->addLayout(dialogButtonsLayout);
+
+	// --- Conexões ---
+	connect(addGameButton, &QPushButton::clicked, this, &GameDetectorSettingsDialog::onAddGameClicked);
+	connect(removeGameButton, &QPushButton::clicked, this, &GameDetectorSettingsDialog::onRemoveGameClicked);
+	connect(clearTableButton, &QPushButton::clicked, this, &GameDetectorSettingsDialog::onClearTableClicked);
+	connect(rescanButton, &QPushButton::clicked, this, [this]() {
+		rescanButton->setEnabled(false);
+		rescanButton->setText(obs_module_text("Settings.Scanning"));
+		GameDetector::get().rescanForGames();
+	});
+	connect(generateTokenButton, &QPushButton::clicked, this, []() { QDesktopServices::openUrl(TOKEN_GENERATOR_URL); });
+	connect(&GameDetector::get(), &GameDetector::automaticScanFinished, this, &GameDetectorSettingsDialog::onAutomaticScanFinished);
+
+	connect(okButton, &QPushButton::clicked, this, [this]() {
+		saveSettings();
+		accept();
+	});
+	connect(cancelButton, &QPushButton::clicked, this, &QDialog::reject);
+
+	loadSettings();
+}
+
+GameDetectorSettingsDialog::~GameDetectorSettingsDialog() {}
+
+void GameDetectorSettingsDialog::loadSettings()
+{
+	tokenInput->setText(ConfigManager::get().getToken());
+
+	obs_data_array_t *gamesArray = ConfigManager::get().getManualGames();
+	if (gamesArray) {
+		manualGamesTable->setRowCount(0);
+		size_t count = obs_data_array_count(gamesArray);
+		for (size_t i = 0; i < count; ++i) {
+			obs_data_t *item = obs_data_array_item(gamesArray, i);
+			QString gameName = obs_data_get_string(item, "name");
+			QString exeName  = obs_data_get_string(item, "exe");
+			QString exePath  = obs_data_get_string(item, "path");
+
+			int newRow = manualGamesTable->rowCount();
+			manualGamesTable->insertRow(newRow);
+			QTableWidgetItem *nameItem = new QTableWidgetItem(gameName);
+
+			QIcon icon = IconProvider::getIconForFile(exePath);
+			nameItem->setIcon(icon.isNull() ? style()->standardIcon(QStyle::SP_DesktopIcon) : icon);
+
+			manualGamesTable->setItem(newRow, 0, nameItem);
+			manualGamesTable->setItem(newRow, 1, new QTableWidgetItem(exeName));
+			manualGamesTable->setItem(newRow, 2, new QTableWidgetItem(exePath));
+			obs_data_release(item);
+		}
+		obs_data_array_release(gamesArray);
+	}
+}
+
+void GameDetectorSettingsDialog::saveSettings()
+{
+	obs_data_t *settings = ConfigManager::get().getSettings();
+
+	obs_data_set_string(settings, "twitch_access_token", tokenInput->text().toStdString().c_str());
+
+	obs_data_array_t *gamesArray = obs_data_array_create();
+	for (int i = 0; i < manualGamesTable->rowCount(); ++i) {
+		obs_data_t *item = obs_data_create();
+		obs_data_set_string(item, "name", manualGamesTable->item(i, 0)->text().toStdString().c_str());
+		obs_data_set_string(item, "exe", manualGamesTable->item(i, 1)->text().toStdString().c_str());
+		obs_data_set_string(item, "path", manualGamesTable->item(i, 2)->text().toStdString().c_str());
+		obs_data_array_push_back(gamesArray, item);
+		obs_data_release(item);
+	}
+	obs_data_set_array(settings, "manual_games_list", gamesArray);
+	obs_data_array_release(gamesArray);
+
+	ConfigManager::get().save(settings);
+	GameDetector::get().loadGamesFromConfig();
+}
+
+void GameDetectorSettingsDialog::onAddGameClicked()
+{
+	QString filePath = QFileDialog::getOpenFileName(this, "Selecionar Executável do Jogo", "", "Executáveis (*.exe)");
+	if (filePath.isEmpty()) {
+		return;
+	}
+
+	QFileInfo fileInfo(filePath);
+	QString exeName = fileInfo.fileName();
+	QString gameName = fileInfo.completeBaseName();
+
+	int newRow = manualGamesTable->rowCount();
+	manualGamesTable->insertRow(newRow);
+	QTableWidgetItem *nameItem = new QTableWidgetItem(gameName);
+	nameItem->setIcon(IconProvider::getIconForFile(filePath));
+	manualGamesTable->setItem(newRow, 0, nameItem);
+	manualGamesTable->setItem(newRow, 1, new QTableWidgetItem(exeName));
+	manualGamesTable->setItem(newRow, 2, new QTableWidgetItem(filePath));
+}
+
+void GameDetectorSettingsDialog::onRemoveGameClicked()
+{
+	int currentRow = manualGamesTable->currentRow();
+	if (currentRow >= 0) {
+		manualGamesTable->removeRow(currentRow);
+	}
+}
+
+void GameDetectorSettingsDialog::onClearTableClicked()
+{
+	manualGamesTable->setRowCount(0);
+}
+
+void GameDetectorSettingsDialog::onAutomaticScanFinished(const QList<std::tuple<QString, QString, QString>> &foundGames)
+{
+	manualGamesTable->blockSignals(true);
+
+	QSet<QString> existingExes;
+	for (int i = 0; i < manualGamesTable->rowCount(); ++i) {
+		if (manualGamesTable->item(i, 1)) {
+			existingExes.insert(manualGamesTable->item(i, 1)->text());
+		}
+	}
+
+	for (const auto &gameTuple : foundGames) {
+		const QString &gameName = std::get<0>(gameTuple);
+		const QString &exeName = std::get<1>(gameTuple);
+		const QString &exePath = std::get<2>(gameTuple);
+
+		if (!existingExes.contains(exeName)) {
+			int newRow = manualGamesTable->rowCount();
+			manualGamesTable->insertRow(newRow);
+			QTableWidgetItem *nameItem = new QTableWidgetItem(gameName);
+			nameItem->setIcon(IconProvider::getIconForFile(exePath));
+			manualGamesTable->setItem(newRow, 0, nameItem);
+			manualGamesTable->setItem(newRow, 1, new QTableWidgetItem(exeName));
+			manualGamesTable->setItem(newRow, 2, new QTableWidgetItem(exePath));
+		}
+	}
+	manualGamesTable->blockSignals(false);
+	rescanButton->setEnabled(true);
+	rescanButton->setText(obs_module_text("Settings.ScanGames"));
+}

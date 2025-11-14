@@ -1,0 +1,44 @@
+#ifndef GAMEDETECTORSETTINGSDIALOG_H
+#define GAMEDETECTORSETTINGSDIALOG_H
+
+#include <QDialog>
+#include <tuple>
+#include <QPair>
+#include <obs-module.h>
+
+// Forward declarations
+class QVBoxLayout;
+class QLabel;
+class QLineEdit;
+class QPushButton;
+class QTableWidget;
+
+class GameDetectorSettingsDialog : public QDialog {
+	Q_OBJECT
+
+public:
+	explicit GameDetectorSettingsDialog(QWidget *parent = nullptr);
+	~GameDetectorSettingsDialog();
+
+private:
+	void loadSettings();
+	void saveSettings();
+
+	// UI Elements
+	QTableWidget *manualGamesTable = nullptr;
+	QPushButton *addGameButton = nullptr;
+	QPushButton *removeGameButton = nullptr;
+	QPushButton *clearTableButton = nullptr;
+	QPushButton *rescanButton = nullptr;
+	QLineEdit *tokenInput = nullptr;
+	QPushButton *okButton = nullptr;
+	QPushButton *cancelButton = nullptr;
+
+private slots:
+	void onAddGameClicked();
+	void onRemoveGameClicked();
+	void onClearTableClicked();
+	void onAutomaticScanFinished(const QList<std::tuple<QString, QString, QString>> &foundGames);
+};
+
+#endif // GAMEDETECTORSETTINGSDIALOG_H
