@@ -29,10 +29,6 @@ jobs:
     - name: Add Inno Setup to PATH
       run: |
         echo "C:\Program Files (x86)\Inno Setup 6" >> $Env:GITHUB_PATH
-
-    - name: Build Installer
-      run: |
-        ISCC.exe setup.iss
     
     # Configurar CMake
     - name: Configure CMake
