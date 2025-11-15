@@ -19,36 +19,25 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    # Instalar Qt 6.5.1 (MSVC 2019 64-bit)
-    - name: Install Qt 6.5.1
-      run: |
-        python -m pip install aqtinstall
-        python -m aqt install-qt windows desktop 6.5.1 win64_msvc2019_64 --outputdir Qt
-
-    # Baixar OBS SDK 32.0.2
-    - name: Download OBS SDK (32.0.2)
-      run: |
-        curl -L -o obs.zip https://github.com/obsproject/obs-studio/releases/download/32.0.2/OBS-Studio-32.0.2-Windows-x64.zip
-
-    - name: Extract OBS SDK files
-      run: |
-        mkdir obs
-        7z x obs.zip -oobs
-
-    - name: Set OBS SDK path
-      run: echo "OBS_PATH=$PWD/obs" >> $env:GITHUB_ENV
-
     # Instalar Inno Setup
     - name: Install Inno Setup
       run: |
         curl -L -o innosetup.exe https://files.jrsoftware.org/is/6/innosetup-6.6.0.exe
         .\innosetup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 
+    # Adicionar Inno Setup ao PATH
+    - name: Add Inno Setup to PATH
+      run: |
+        echo "C:\Program Files (x86)\Inno Setup 6" >> $Env:GITHUB_PATH
+
+    - name: Build Installer
+      run: |
+        ISCC.exe setup.iss
+    
     # Configurar CMake
     - name: Configure CMake
       run: cmake -B build `
-        -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
-        -DOBS_PATH="${{ env.OBS_PATH }}"
+        -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
 
     # Compilar plugin
     - name: Build
