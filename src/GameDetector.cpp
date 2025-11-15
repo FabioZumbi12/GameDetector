@@ -79,6 +79,13 @@ void GameDetector::onGameScanFinished()
 
 void GameDetector::onSettingsChanged()
 {
+	stopScanning();
+
+	currentGameProcess.clear();
+	emit noGameDetected();
+
+	startProcessMonitoring();
+
 	// Recarrega a lista de jogos, pois pode ter sido alterada
 	loadGamesFromConfig();
 }
@@ -370,6 +377,7 @@ void GameDetector::loadGamesFromConfig()
 {
 	knownGameExes.clear();
 	gameNameMap.clear();
+
 	// 3. Carregar jogos manuais da configuração
 	obs_data_array_t *manualGames = ConfigManager::get().getManualGames();
 	if (manualGames) {

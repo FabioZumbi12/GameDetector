@@ -150,7 +150,7 @@ Você pode:
 
 ---
 
-## 📜 Licença
+## Licença
 
 **GNU GENERAL PUBLIC LICENSE**
 

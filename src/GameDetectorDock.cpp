@@ -1,5 +1,6 @@
 ﻿#include "GameDetectorDock.h"
 #include "GameDetector.h"
+#include "TwitchChatBot.h"
 #include <obs-data.h>
 #include "ConfigManager.h"
 
@@ -26,6 +27,11 @@ GameDetectorDock::GameDetectorDock(QWidget *parent) : QWidget(parent)
 
 	g_statusLabel = new QLabel(obs_module_text("Status.Waiting"));
 	mainLayout->addWidget(g_statusLabel);
+
+	QFrame *separator1 = new QFrame();
+	separator1->setFrameShape(QFrame::HLine);
+	separator1->setFrameShadow(QFrame::Sunken);
+	mainLayout->addWidget(separator1);
 
 	// Layout para o comando
 	QHBoxLayout *commandLayout = new QHBoxLayout();
@@ -66,40 +72,46 @@ GameDetectorDock::GameDetectorDock(QWidget *parent) : QWidget(parent)
 	connect(&GameDetector::get(), &GameDetector::gameDetected, this, &GameDetectorDock::onGameDetected);
 	connect(&GameDetector::get(), &GameDetector::noGameDetected, this, &GameDetectorDock::onNoGameDetected);
 
-	// Botão de salvar no final
-	saveButton = new QPushButton(obs_module_text("Dock.SaveSettings"));
-	saveButton->setEnabled(false);
-	mainLayout->addWidget(saveButton);
-	connect(saveButton, &QPushButton::clicked, this, &GameDetectorDock::onSaveClicked);
+	// Timer para salvar com delay
+	saveDelayTimer = new QTimer(this);
+	saveDelayTimer->setSingleShot(true);
+	saveDelayTimer->setInterval(1000); // 1 segundo de delay
+	connect(saveDelayTimer, &QTimer::timeout, this, &GameDetectorDock::saveDockSettings);
 
-	mainLayout->addStretch(1);
+	// O botão de salvar foi removido, o salvamento agora é automático.
+
+	mainLayout->addStretch(1);QLabel *developerLabel = new QLabel(
+		"<small><a href=\"https://github.com/FabioZumbi12\" style=\"color: gray; text-decoration: none;\"><i>Developed by FabioZumbi12</i></a></small>");
+	developerLabel->setOpenExternalLinks(true);
+	mainLayout->addWidget(developerLabel);
 	setLayout(mainLayout);
 }
 
-void GameDetectorDock::onSaveClicked()
+void GameDetectorDock::saveDockSettings()
 {
 	obs_data_t *settings = ConfigManager::get().getSettings();
 
-	// Salva apenas os comandos e o checkbox
 	obs_data_set_string(settings, "twitch_command_message", commandInput->text().toStdString().c_str());
 	obs_data_set_string(settings, "twitch_command_no_game", noGameCommandInput->text().toStdString().c_str());
 	obs_data_set_bool(settings, "execute_automatically", autoExecuteCheckbox->isChecked());
 
 	ConfigManager::get().save(settings);
 
-	saveButton->setText(obs_module_text("Dock.SettingsSaved"));
-	saveButton->setEnabled(false);
+	// Feedback visual no label de status
+	QString originalStatus = g_statusLabel->text();
+	g_statusLabel->setText(obs_module_text("Dock.SettingsSaved"));
 
 	QTimer::singleShot(2000, this, [this]() {
-		saveButton->setText(obs_module_text("Dock.SaveSettings"));
+		// Restaura o status original, verificando se não mudou nesse meio tempo
+		if (g_statusLabel->text() == obs_module_text("Dock.SettingsSaved")) {
+			g_statusLabel->setText(this->detectedGameName.isEmpty() ? obs_module_text("Status.Waiting") : QString(obs_module_text("Status.Playing")).arg(this->detectedGameName));
+		}
 	});
 }
 
 void GameDetectorDock::onSettingsChanged()
 {
-	saveButton->setEnabled(true);
-	saveButton->setText(obs_module_text("Dock.SaveChanges"));
-	// A linha que salvava automaticamente foi removida daqui.
+	saveDelayTimer->start(); // Reinicia o timer a cada alteração
 }
 
 void GameDetectorDock::onGameDetected(const QString &gameName, const QString &processName)
@@ -107,10 +119,10 @@ void GameDetectorDock::onGameDetected(const QString &gameName, const QString &pr
 	this->detectedGameName = gameName;
 	g_statusLabel->setText(QString(obs_module_text("Status.Playing")).arg(gameName));
 
+	executeCommandButton->setEnabled(true);
 	if (autoExecuteCheckbox->isChecked()) {
 		executeGameCommand(gameName);
 	} else {
-		executeCommandButton->setEnabled(true);
 		executeCommandButton->setText(QString(obs_module_text("Dock.ExecuteCommandFor")).arg(gameName));
 	}
 }
@@ -124,9 +136,10 @@ void GameDetectorDock::onNoGameDetected()
 
 	// Executa o comando de "sem jogo"
 	QString noGameCommand = noGameCommandInput->text();
-	if (!noGameCommand.isEmpty()) {
-		blog(LOG_INFO, "[OBSGameDetector] Executando comando 'sem jogo': %s", noGameCommand.toStdString().c_str());
-		// Aqui virá a lógica para enviar a mensagem para a Twitch
+	if (autoExecuteCheckbox->isChecked()) {
+		if (!noGameCommand.isEmpty()) {
+			TwitchChatBot::get().sendMessage(noGameCommand);
+		}
 	}
 }
 
@@ -147,9 +160,6 @@ void GameDetectorDock::loadSettingsFromConfig()
 	noGameCommandInput->setText(ConfigManager::get().getNoGameCommand());
 	autoExecuteCheckbox->setChecked(ConfigManager::get().getExecuteAutomatically());
 
-	saveButton->setEnabled(false);
-	saveButton->setText(obs_module_text("Dock.SaveSettings"));
-
 	commandInput->blockSignals(false);
 	noGameCommandInput->blockSignals(false);
 	autoExecuteCheckbox->blockSignals(false);
@@ -161,8 +171,7 @@ void GameDetectorDock::executeGameCommand(const QString &gameName)
 	if (commandTemplate.isEmpty()) return;
 
 	QString command = commandTemplate.replace("{game}", gameName);
-	blog(LOG_INFO, "[OBSGameDetector] Executando comando: %s", command.toStdString().c_str());
-	// Aqui virá a lógica para enviar a mensagem para a Twitch
+	TwitchChatBot::get().sendMessage(command);
 }
 
 GameDetectorDock::~GameDetectorDock()

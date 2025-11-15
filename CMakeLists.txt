@@ -1,3 +1,10 @@
+#  OBS Game Detector - CMake Build Configuration
+#  This CMake configuration file sets up the build process for the OBS Game Detector plugin.
+#  It includes options for enabling the obs-frontend-api and Qt functionalities,
+#  and specifies custom output directories for the built plugin and its associated data.
+#  
+#  If the build fail (the folder build_x64 don't exists), run on terminal: cmake --preset windows-x64
+
 cmake_minimum_required(VERSION 3.28...3.30)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/common/bootstrap.cmake" NO_POLICY_SCOPE)
@@ -6,6 +13,7 @@ project(OBSGameDetector VERSION 1.0.0)
 
 option(ENABLE_FRONTEND_API "Use obs-frontend-api for UI functionality" ON)
 option(ENABLE_QT "Use Qt functionality" ON)
+option(ENABLE_INNO_SETUP "Build installer using Inno Setup" ON)
 
 include(compilerconfig)
 include(defaults)
@@ -15,6 +23,60 @@ add_library(${CMAKE_PROJECT_NAME} MODULE)
 
 find_package(libobs REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs)
+
+# Caminhos do diretorio de saida personalizado
+set(SETUP_ROOT "${CMAKE_SOURCE_DIR}/setup")
+set(SETUP_PLUGINS_DIR "${SETUP_ROOT}/obs-plugins/64bit")
+set(SETUP_DATA_DIR "${SETUP_ROOT}/data/obs-plugins/obs-game-detector")
+
+# Certifique-se de que os diretorios existem
+file(MAKE_DIRECTORY "${SETUP_PLUGINS_DIR}")
+file(MAKE_DIRECTORY "${SETUP_DATA_DIR}")
+
+# Caminho de saida do ZIP
+set(SETUP_ZIP "${CMAKE_SOURCE_DIR}/setup/OBSGameDetector.zip")
+
+add_custom_command(TARGET OBSGameDetector POST_BUILD
+    # Copiar DLL
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:OBSGameDetector>
+        "${SETUP_PLUGINS_DIR}/$<TARGET_FILE_NAME:OBSGameDetector>"
+
+    # Copiar pasta data
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/data"
+        "${SETUP_DATA_DIR}"
+
+    # Criar ZIP corretamente
+    COMMAND ${CMAKE_COMMAND} -E tar cfv "${SETUP_ZIP}" --format=zip
+        "obs-plugins"
+        "data"
+
+    WORKING_DIRECTORY "${SETUP_ROOT}"
+
+    COMMENT "Empacotando arquivos do plugin..."
+)
+
+# Encontra o compilador do Inno Setup (opcional)
+find_program(INNO_SETUP_COMPILER iscc)
+
+# Criar o instalador com Inno Setup (opcional)
+if(ENABLE_INNO_SETUP AND INNO_SETUP_COMPILER)
+    add_custom_command(TARGET OBSGameDetector POST_BUILD
+
+        COMMAND ${CMAKE_COMMAND} -E echo "Executando Inno Setup..."
+
+        # Executa sem interromper o build caso o iscc falhe
+        COMMAND cmd /C "\"${INNO_SETUP_COMPILER}\" \"${CMAKE_SOURCE_DIR}/setup.iss\" || exit /B 0"
+
+        # Agora o script está no root do projeto
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+
+        COMMENT "Criando instalador OBSGameDetector-Setup.exe (opcional)..."
+    )
+else()
+    message(STATUS "Inno Setup desabilitado ou não encontrado. Ignorando criação do instalador.")
+endif()
 
 if(ENABLE_FRONTEND_API)
   find_package(obs-frontend-api REQUIRED)
@@ -42,11 +104,12 @@ if(WIN32)
 endif()
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
-    "src/plugin-main.cpp" "src/GameDetectorDock.cpp" "src/ConfigManager.cpp" "src/GameDetector.cpp" "src/GameDetectorSettingsDialog.cpp" "src/IconProvider.cpp")
+    "src/plugin-main.cpp"
+    "src/GameDetectorDock.cpp"
+    "src/ConfigManager.cpp" "src/GameDetector.cpp"
+    "src/GameDetectorSettingsDialog.cpp"
+    "src/IconProvider.cpp"
+    "src/TwitchChatBot.cpp"
+    )
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME "obs-game-detector")
-
-install(
-  FILES "data/locale/en-US.ini" "data/locale/pt-BR.ini"
-  DESTINATION "${OBS_PLUGIN_DESTINATION_DATA}/obs-plugins/${CMAKE_PROJECT_NAME}/locale"
-)

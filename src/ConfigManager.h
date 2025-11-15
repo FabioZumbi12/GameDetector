@@ -10,6 +10,8 @@ class ConfigManager : public QObject {
 
 private:
 	static constexpr const char *TOKEN_KEY = "twitch_access_token";
+	static constexpr const char *USERNAME_KEY = "twitch_username";
+	static constexpr const char *CLIENT_ID_KEY = "twitch_client_id";
 	static constexpr const char *COMMAND_KEY = "twitch_command_message";
 	static constexpr const char *MANUAL_GAMES_KEY = "manual_games_list";
 	static constexpr const char *COMMAND_NO_GAME_KEY = "twitch_command_no_game";
@@ -31,6 +33,7 @@ public:
 
 	obs_data_t *getSettings() const;
 	QString getToken() const;
+	QString getClientId() const;
 	QString getCommand() const;
 	obs_data_array_t *getManualGames() const;
 	QString getNoGameCommand() const;

@@ -17,7 +17,7 @@
 #include <QFileDialog>
 #include <obs-data.h>
 
-const QUrl TOKEN_GENERATOR_URL("https://twitchtokengenerator.com/quick/GYXoPVcdvv");
+const QUrl TOKEN_GENERATOR_URL("https://twitchtokengenerator.com/quick/7of9EyvC9D");
 
 GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialog(parent)
 {
@@ -26,13 +26,23 @@ GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialo
 
 	QVBoxLayout *mainLayout = new QVBoxLayout(this);
 
+	mainLayout->addWidget(new QLabel(obs_module_text("Settings.Header")));
+	QLabel *headerLabel = new QLabel(obs_module_text("Settings.Description"));
+	headerLabel->setWordWrap(true);
+	mainLayout->addWidget(headerLabel);
+
+	QFrame *separator1 = new QFrame();
+	separator1->setFrameShape(QFrame::HLine);
+	separator1->setFrameShadow(QFrame::Sunken);
+	mainLayout->addWidget(separator1);
+
 	// --- Seção da Tabela de Jogos ---
 	mainLayout->addWidget(new QLabel(obs_module_text("Settings.GameList")));
 
 	manualGamesTable = new QTableWidget();
 	manualGamesTable->setColumnCount(3);
 	manualGamesTable->setHorizontalHeaderLabels(QStringList() << obs_module_text("Table.Header.Name") << obs_module_text("Table.Header.Executable") << "Caminho");
-	manualGamesTable->horizontalHeader()->setStretchLastSection(true);
+	manualGamesTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
 	// Oculta a coluna de caminho, ela é apenas para uso interno
 	manualGamesTable->setColumnHidden(2, true);
 	mainLayout->addWidget(manualGamesTable);
@@ -44,12 +54,12 @@ GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialo
 	tableButtonsLayout->addWidget(addGameButton);
 	tableButtonsLayout->addWidget(removeGameButton);
 	tableButtonsLayout->addWidget(clearTableButton);
+	rescanButton = new QPushButton(obs_module_text("Settings.ScanGames"));
+	rescanButton->setProperty("baseText", rescanButton->text());
+	tableButtonsLayout->addWidget(rescanButton);
 	tableButtonsLayout->addStretch(1);
 	mainLayout->addLayout(tableButtonsLayout);
 
-	rescanButton = new QPushButton(obs_module_text("Settings.ScanGames"));
-	rescanButton->setProperty("baseText", rescanButton->text());
-	mainLayout->addWidget(rescanButton);
 	connect(&GameDetector::get(), &GameDetector::gameFoundDuringScan, this, [=](int totalFound) {
 		QString base = rescanButton->property("baseText").toString();
 		rescanButton->setText(QString("%1 (%2)").arg(base).arg(totalFound));
@@ -62,22 +72,33 @@ GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialo
 	separator2->setFrameShadow(QFrame::Sunken);
 	mainLayout->addWidget(separator2);
 
+	// --- Seção do Client ID ---
+	mainLayout->addWidget(new QLabel(obs_module_text("Settings.TwitchConnection")));
+	QHBoxLayout *clientIdHeaderLayout = new QHBoxLayout();
+	clientIdHeaderLayout->addWidget(new QLabel(obs_module_text("Settings.ClientID")));
+	clientIdInput = new QLineEdit();
+	clientIdHeaderLayout->addWidget(clientIdInput);
+	mainLayout->addLayout(clientIdHeaderLayout);
+
 	// --- Seção do Token ---
 	QHBoxLayout *tokenHeaderLayout = new QHBoxLayout();
 	tokenHeaderLayout->addWidget(new QLabel(obs_module_text("Settings.Token")));
-	tokenHeaderLayout->addStretch(1);
-	QPushButton *generateTokenButton = new QPushButton(obs_module_text("Settings.GenerateToken"));
-	tokenHeaderLayout->addWidget(generateTokenButton);
-	mainLayout->addLayout(tokenHeaderLayout);
-
 	tokenInput = new QLineEdit();
 	tokenInput->setEchoMode(QLineEdit::Password);
 	tokenInput->setPlaceholderText(obs_module_text("Settings.Token.Placeholder"));
-	mainLayout->addWidget(tokenInput);
+	tokenHeaderLayout->addWidget(tokenInput);
+	mainLayout->addLayout(tokenHeaderLayout);
+
+	QPushButton *generateTokenButton = new QPushButton(obs_module_text("Settings.GenerateToken"));
+	mainLayout->addWidget(generateTokenButton);
 
 	mainLayout->addWidget(new QLabel(obs_module_text("Settings.Token.HelpText")));
 
 	mainLayout->addStretch(1);
+	QLabel *developerLabel = new QLabel(
+		"<small><a href=\"https://github.com/FabioZumbi12\" style=\"color: gray; text-decoration: none;\"><i>Developed by FabioZumbi12</i></a></small>");
+	developerLabel->setOpenExternalLinks(true);
+	mainLayout->addWidget(developerLabel);
 
 	// --- Botões OK/Cancel ---
 	QHBoxLayout *dialogButtonsLayout = new QHBoxLayout();
@@ -113,6 +134,7 @@ GameDetectorSettingsDialog::~GameDetectorSettingsDialog() {}
 
 void GameDetectorSettingsDialog::loadSettings()
 {
+	clientIdInput->setText(ConfigManager::get().getClientId());
 	tokenInput->setText(ConfigManager::get().getToken());
 
 	obs_data_array_t *gamesArray = ConfigManager::get().getManualGames();
@@ -145,6 +167,7 @@ void GameDetectorSettingsDialog::saveSettings()
 {
 	obs_data_t *settings = ConfigManager::get().getSettings();
 
+	obs_data_set_string(settings, "twitch_client_id", clientIdInput->text().toStdString().c_str());
 	obs_data_set_string(settings, "twitch_access_token", tokenInput->text().toStdString().c_str());
 
 	obs_data_array_t *gamesArray = obs_data_array_create();

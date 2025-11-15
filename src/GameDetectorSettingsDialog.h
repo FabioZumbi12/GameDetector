@@ -31,6 +31,7 @@ private:
 	QPushButton *removeGameButton = nullptr;
 	QPushButton *clearTableButton = nullptr;
 	QPushButton *rescanButton = nullptr;
+	QLineEdit *clientIdInput = nullptr;
 	QLineEdit *tokenInput = nullptr;
 	QPushButton *okButton = nullptr;
 	QPushButton *cancelButton = nullptr;

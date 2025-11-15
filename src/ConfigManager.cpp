@@ -30,6 +30,10 @@ void ConfigManager::load()
 			obs_data_set_string(settings, COMMAND_KEY, "!setgame {game}");
 			blog(LOG_INFO, "[OBSGameDetector] Chave de comando nao encontrada, definindo valor padrao.");
 		}
+		// Garante que a chave de client id exista
+		if (!obs_data_has_user_value(settings, CLIENT_ID_KEY)) {
+			obs_data_set_string(settings, CLIENT_ID_KEY, "");
+		}
 		// Garante que a lista de jogos manuais exista
 		if (!obs_data_has_user_value(settings, MANUAL_GAMES_KEY)) {
 			obs_data_array_t *empty_array = obs_data_array_create();
@@ -117,6 +121,18 @@ QString ConfigManager::getToken() const
 
 	QString token = QString::fromUtf8(token_str);
 	return token;
+}
+
+QString ConfigManager::getClientId() const
+{
+	if (!settings)
+		return "";
+
+	const char *client_id_str = obs_data_get_string(settings, CLIENT_ID_KEY);
+	if (!client_id_str)
+		return "";
+
+	return QString::fromUtf8(client_id_str);
 }
 
 QString ConfigManager::getCommand() const

@@ -6,6 +6,7 @@
 
 #include "ConfigManager.h"
 #include "GameDetector.h"
+#include "TwitchChatBot.h"
 
 #include "GameDetectorSettingsDialog.h"
 #include "GameDetectorDock.h"
