@@ -2,19 +2,19 @@
 
 permissions:
   contents: write
-  
+
 on:
   push:
     tags:
       - "v*"
-      
+
 env:
   BUILD_TYPE: Release
 
 jobs:
   build:
     runs-on: windows-latest
-    
+
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -29,8 +29,9 @@ jobs:
       shell: cmd
       run: |
         curl -L -o BrazilianPortuguese.isl https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/BrazilianPortuguese.isl
+        if not exist "C:\Program Files (x86)\Inno Setup 6\Languages\" mkdir "C:\Program Files (x86)\Inno Setup 6\Languages\"
         copy /Y BrazilianPortuguese.isl "C:\Program Files (x86)\Inno Setup 6\Languages\BrazilianPortuguese.isl"
-    
+
     # Configurar CMake
     - name: Configure CMake
       run: cmake -B build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
@@ -48,13 +49,15 @@ jobs:
           const fs = require('fs');
           const { owner, repo } = context.repo;
           const currentTag = process.env.GITHUB_REF_NAME;
-    
-          // Get the previous tag
+
+          // List tags
           const tags = await github.rest.repos.listTags({ owner, repo });
-          const previousTag = tags.data[1]?.name;
-    
+
+          // Prevent crash if only 1 tag exists
+          const previousTag = tags.data.length > 1 ? tags.data[1].name : null;
+
           let commitsText = "";
-    
+
           if (previousTag) {
             const compare = await github.rest.repos.compareCommits({
               owner,
@@ -62,51 +65,30 @@ jobs:
               base: previousTag,
               head: currentTag
             });
-    
+
             commitsText = compare.data.commits
               .map(c => `- ${c.commit.message.split("\n")[0]} (by ${c.commit.author.name})`)
               .join("\n");
           } else {
             commitsText = "First release — no previous history.";
           }
-    
+
           const note = `### Changes included in this version\n\n${commitsText}`;
 
-          // SAFE multiline output format
+          // SAFE multiline output
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `body<<EOF\n${note}\nEOF\n`);
 
-    # Criar ou atualizar a Release
-    - name: Create or Update Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # Criar Release e enviar os assets usando softprops/action-gh-release
+    - name: Publish Release
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ github.ref_name }}
-        release_name: GameDetector Release ${{ github.ref_name }}
+        name: GameDetector Release ${{ github.ref_name }}
         body: ${{ steps.notes.outputs.body }}
         draft: false
         prerelease: false
-        generate_release_notes: true
-
-    # Upload do ZIP para a Release
-    - name: Upload ZIP to Release
-      uses: actions/upload-release-asset@v1
+        files: |
+          setup/GameDetector.zip
+          setup/GameDetector-Setup.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: setup/GameDetector.zip
-        asset_name: GameDetector.zip
-        asset_content_type: application/zip
-
-    # Upload do Installer para a Release
-    - name: Upload Installer to Release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: setup/GameDetector-Setup.exe
-        asset_name: GameDetector-Setup.exe
-        asset_content_type: application/octet-stream
