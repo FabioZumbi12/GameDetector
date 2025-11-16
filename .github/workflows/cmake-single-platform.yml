@@ -24,6 +24,11 @@ jobs:
       run: |
         curl -L -o innosetup.exe https://files.jrsoftware.org/is/6/innosetup-6.6.0.exe
         .\innosetup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+
+    - name: Install Brazilian Portuguese language
+      run: |
+        curl -L -o BrazilianPortuguese.isl https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/BrazilianPortuguese.isl
+        copy /Y BrazilianPortuguese.isl "C:\Program Files (x86)\Inno Setup 6\Languages\BrazilianPortuguese.isl"
     
     # Configurar CMake
     - name: Configure CMake
