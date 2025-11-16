@@ -26,6 +26,7 @@ GameDetectorDock::GameDetectorDock(QWidget *parent) : QWidget(parent)
 	this->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
 
 	g_statusLabel = new QLabel(obs_module_text("Status.Waiting"));
+	g_statusLabel->setWordWrap(true);
 	mainLayout->addWidget(g_statusLabel);
 
 	QFrame *separator1 = new QFrame();
@@ -122,8 +123,6 @@ void GameDetectorDock::onGameDetected(const QString &gameName, const QString &pr
 	executeCommandButton->setEnabled(true);
 	if (autoExecuteCheckbox->isChecked()) {
 		executeGameCommand(gameName);
-	} else {
-		executeCommandButton->setText(QString(obs_module_text("Dock.ExecuteCommandFor")).arg(gameName));
 	}
 }
 
@@ -132,7 +131,6 @@ void GameDetectorDock::onNoGameDetected()
 	this->detectedGameName.clear();
 	g_statusLabel->setText(obs_module_text("Status.Waiting"));
 	executeCommandButton->setEnabled(false);
-	executeCommandButton->setText(obs_module_text("Dock.ExecuteCommand"));
 
 	// Executa o comando de "sem jogo"
 	QString noGameCommand = noGameCommandInput->text();
