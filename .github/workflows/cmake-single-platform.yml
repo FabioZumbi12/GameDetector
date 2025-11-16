@@ -4,9 +4,7 @@ on:
   push:
     tags:
       - "v*"      # exemplo: v1.0.0
-  pull_request:
-    branches: ["master"]
-
+      
 env:
   BUILD_TYPE: Release
 
