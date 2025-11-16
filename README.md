@@ -24,15 +24,15 @@ The focus is speed, accurate detection, and zero performance impact.
 After downloading the installer or ZIP file:
 
 ### **Installer Setup (recommended)**
-1. Download **OBSGameDetector-Setup.exe** from the [Releases](../../releases) page.
+1. Download **GameDetector-Setup.exe** from the [Releases](../../releases) page.
 2. Run the installer.
 3. Open OBS and confirm the plugin appears under **Tools → OBS GameDetector**.
 
 ### **Manual ZIP Installation**
 1. Extract the ZIP.
 2. Copy:
-   - `obs-plugins/64bit/obs-game-detector.dll` → into the OBS plugins folder  
-   - `data/obs-plugins/obs-game-detector/` → into the OBS data folder  
+   - `obs-plugins/64bit/game-detector.dll` → into the OBS plugins folder  
+   - `data/obs-plugins/game-detector/` → into the OBS data folder  
 3. Restart OBS.
 
 ---
@@ -47,7 +47,7 @@ The plugin requires two mandatory fields for Twitch integration:
 ### How to fill them:
 
 1. Open OBS.
-2. Go to **Tools → OBS GameDetector**.
+2. Go to **Tools → GameDetector**.
 3. Inside the settings panel, click the **Generate Token** button.
 4. You will be redirected to:
 
@@ -145,7 +145,7 @@ You can run the scan again at any time:
 
 ## 🤝 Credits
 
-Developed by **Fábio F. Magalhães**.  
+Developed by **Fábio F. Magalhães (FabioZumbi12)**.  
 Contributions and PRs are welcome!
 
 ---
