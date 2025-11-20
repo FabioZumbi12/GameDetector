@@ -19,7 +19,7 @@ The focus is speed, accurate detection, and zero performance impact.
 
 ## 📥 Installation and Usage
 
-Checkout the [WIKI Page](wiki)
+Checkout the [WIKI Page](../../wiki)
 
 ## 🤝 Credits
 
