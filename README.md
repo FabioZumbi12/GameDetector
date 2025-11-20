@@ -7,7 +7,7 @@ Plugin to detect installed games and integrate with Twitch · OBS Studio Support
 
 ## 📘 About Game Detector OBS Plugin
 
-OBS GameDetector is a plugin for OBS Studio that automatically identifies games installed on your PC (Steam and Epic Games), allowing:
+GameDetector is a plugin for OBS Studio that automatically identifies games installed on your PC (Steam and Epic Games), allowing:
 
 - Automatic game selection  
 - Twitch integration
