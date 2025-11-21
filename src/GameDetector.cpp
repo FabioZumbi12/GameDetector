@@ -366,7 +366,7 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 			gogSettings.beginGroup(gameId);
 
 			QString friendlyName = gogSettings.value("gameName").toString();
-			QString exePath = gogSettings.value("exeFile").toString(); // GOG nos dá o caminho completo!
+			QString exePath = gogSettings.value("exe").toString(); // GOG nos dá o caminho completo!
 			QString exeName = QFileInfo(exePath).fileName();
 
 			gogSettings.endGroup();
