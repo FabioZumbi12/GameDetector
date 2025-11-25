@@ -11,7 +11,7 @@
 #include <QCheckBox>
 #include <obs-module.h>
 
-class GameDetectorSettingsDialog; // Forward declaration
+class GameDetectorSettingsDialog;
 
 class GameDetectorDock : public QWidget {
 	Q_OBJECT

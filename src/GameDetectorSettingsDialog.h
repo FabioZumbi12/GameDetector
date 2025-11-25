@@ -3,7 +3,6 @@
 
 #include <QDialog>
 
-// Forward declarations
 class QLabel;
 class QLineEdit;
 class QPushButton;
@@ -23,8 +22,6 @@ public:
 	void updateActionModeUI(int index);
 
 private:
-
-	// UI Elements
 	QPushButton *manageGamesButton = nullptr;
 	QLabel      *authStatusLabel = nullptr;
 	QPushButton *authButton      = nullptr;

@@ -22,8 +22,6 @@ GameListDialog::GameListDialog(GameDetectorSettingsDialog *parent) : QDialog(par
 	setMinimumSize(800, 600);
 
 	QVBoxLayout *mainLayout = new QVBoxLayout(this);
-
-	// --- Seção da Tabela de Jogos ---
 	QGroupBox *gamesGroup = new QGroupBox(obs_module_text("Settings.GameList"));
 	QVBoxLayout *gamesLayout = new QVBoxLayout();
 
@@ -39,7 +37,6 @@ GameListDialog::GameListDialog(GameDetectorSettingsDialog *parent) : QDialog(par
 	manualGamesTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
 	gamesLayout->addWidget(manualGamesTable);
 
-	// Layout para os botões abaixo da tabela
 	QHBoxLayout *tableButtonsLayout = new QHBoxLayout();
 	addGameButton = new QPushButton(obs_module_text("Settings.AddGame"));
 	clearTableButton = new QPushButton(obs_module_text("Settings.ClearList"));
@@ -55,7 +52,6 @@ GameListDialog::GameListDialog(GameDetectorSettingsDialog *parent) : QDialog(par
 	gamesGroup->setLayout(gamesLayout);
 	mainLayout->addWidget(gamesGroup);
 
-	// --- Botão OK ---
 	QHBoxLayout *dialogButtonsLayout = new QHBoxLayout();
 	okButton = new QPushButton(obs_module_text("OK"));
 	cancelButton = new QPushButton(obs_module_text("Cancel"));
@@ -68,7 +64,6 @@ GameListDialog::GameListDialog(GameDetectorSettingsDialog *parent) : QDialog(par
 	dialogButtonsLayout->addWidget(cancelButton);
 	mainLayout->addLayout(dialogButtonsLayout);
 
-	// --- Conexões ---
 	connect(addGameButton, &QPushButton::clicked, this, &GameListDialog::onAddGameClicked);
 	connect(clearTableButton, &QPushButton::clicked, this, &GameListDialog::onClearTableClicked);
 	connect(rescanButton, &QPushButton::clicked, this, [this]() {

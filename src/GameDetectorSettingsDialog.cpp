@@ -33,7 +33,6 @@ GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialo
 	headerLabel->setWordWrap(true);
 	mainLayout->addWidget(headerLabel);
 
-	// --- Opções de Escaneamento ---
 	QGroupBox *scanGroup = new QGroupBox(obs_module_text("Settings.ScanOptions"));
 	QVBoxLayout *scanLayout = new QVBoxLayout();
 
@@ -65,14 +64,12 @@ GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialo
 	autoScanLayout->addStretch(1);
 	scanLayout->addLayout(autoScanLayout);
 
-	// --- Botão para Gerenciar Lista de Jogos ---
 	manageGamesButton = new QPushButton(obs_module_text("Settings.ManageGames"));
 	scanLayout->addWidget(manageGamesButton);
 
 	scanGroup->setLayout(scanLayout);
 	mainLayout->addWidget(scanGroup);
 
-	// --- Seção do Token ---
 	QGroupBox *authGroup = new QGroupBox(obs_module_text("Settings.TwitchConnection"));
 	QVBoxLayout *authLayout = new QVBoxLayout();
 
@@ -94,7 +91,6 @@ GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialo
 
 	authGroup->setLayout(authLayout);
 
-	// --- Seção de Ação da Twitch ---	
 	QGroupBox *twitchActionGroup = new QGroupBox(obs_module_text("Settings.TwitchAction"));
 
 	QFormLayout *twitchActionComboBoxLayout = new QFormLayout();
@@ -102,11 +98,10 @@ GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialo
 	twitchActionComboBox->addItem(obs_module_text("Settings.TwitchAction.SendCommand"), 0);
 	twitchActionComboBox->addItem(obs_module_text("Settings.TwitchAction.ChangeCategory"), 1);
 	twitchActionComboBoxLayout->addWidget(twitchActionComboBox);
-	
+
 	QFormLayout *twitchActionLayout = new QFormLayout();
 	twitchActionLayout->addRow(twitchActionComboBoxLayout);
 
-	// --- Widgets para o modo de comando ---
 	commandLabel = new QLabel(obs_module_text("Settings.Command.GameDetected"));
 	commandInput = new QLineEdit();
 	commandInput->setPlaceholderText(obs_module_text("Settings.Command.GameDetected.Placeholder"));
@@ -123,7 +118,6 @@ GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialo
 
 	twitchActionGroup->setLayout(twitchActionLayout);
 
-	// Layout horizontal para agrupar as seções de autenticação e ação
 	QHBoxLayout *authAndActionLayout = new QHBoxLayout();
 	authAndActionLayout->addWidget(authGroup, 1);
 	authAndActionLayout->addWidget(twitchActionGroup, 1);
@@ -132,7 +126,6 @@ GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialo
 
 	mainLayout->addStretch(1);
 
-	// --- Botões OK/Cancel ---
 	QHBoxLayout *dialogButtonsLayout = new QHBoxLayout();
 	QLabel *developerLabel = new QLabel(
 		"<small><a href=\"https://github.com/FabioZumbi12\" style=\"color: gray; text-decoration: none;\"><i>Developed by FabioZumbi12</i></a></small>");
@@ -145,7 +138,6 @@ GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialo
 	dialogButtonsLayout->addWidget(cancelButton);
 	mainLayout->addLayout(dialogButtonsLayout);
 
-	// --- Conexões ---
 	connect(manageGamesButton, &QPushButton::clicked, this, &GameDetectorSettingsDialog::onManageGamesClicked);
 	connect(authButton, &QPushButton::clicked, &TwitchAuthManager::get(), &TwitchAuthManager::startAuthentication);
 	connect(disconnectButton, &QPushButton::clicked, this, &GameDetectorSettingsDialog::onDisconnectClicked);
@@ -208,7 +200,6 @@ void GameDetectorSettingsDialog::saveSettings()
 
 	ConfigManager::get().save(settings);
 
-	// Notifica o detector que as configurações foram alteradas
 	GameDetector::get().onSettingsChanged();
 	GameDetector::get().setupPeriodicScan();
 }
@@ -236,10 +227,10 @@ void GameDetectorSettingsDialog::onAuthenticationFinished(bool success, const QS
 		authButton->setText(obs_module_text("Auth.Reconnect"));
 		disconnectButton->setVisible(true);
 	} else {
-		authStatusLabel->setText(obs_module_text("Auth.NotConnected")); // Not Connected
-		authButton->setText(obs_module_text("Auth.Connect"));           // Connect with Twitch
-		disconnectButton->setVisible(false);                            // Disconnect
-		if (!username.isEmpty()) { // If username is not empty, it means it's an error message
+		authStatusLabel->setText(obs_module_text("Auth.NotConnected"));
+		authButton->setText(obs_module_text("Auth.Connect")); 
+		disconnectButton->setVisible(false);
+		if (!username.isEmpty()) {
 			blog(LOG_WARNING, "[GameDetector/Auth] Authentication failed: %s", username.toStdString().c_str());
 		}
 	}
@@ -247,19 +238,13 @@ void GameDetectorSettingsDialog::onAuthenticationFinished(bool success, const QS
 
 void GameDetectorSettingsDialog::onDisconnectClicked()
 {
-	// Limpa os dados de autenticação em memória e persistidos no AuthManager
-	// (que por sua vez, limpa o ConfigManager)
 	TwitchAuthManager::get().clearAuthentication();
-	
-	// Atualiza a UI para o estado "não conectado"
 	onAuthenticationFinished(false, "");
-
 	blog(LOG_INFO, "[GameDetector/Auth] User disconnected.");
 }
 
 void GameDetectorSettingsDialog::onManageGamesClicked()
 {
-	// Cria o diálogo como modal. A execução do código pausa aqui até o diálogo ser fechado.
 	GameListDialog dialog(this);
 	dialog.exec();
 }

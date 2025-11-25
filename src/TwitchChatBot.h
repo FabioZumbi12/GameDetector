@@ -28,7 +28,7 @@ private:
 	QString lastSetCategoryName;
 	QFutureWatcher<QString> *gameIdWatcher;
 	QFutureWatcher<bool> *chatMessageWatcher;
-	QFutureWatcher<void *> *categoryUpdateWatcher; // Usaremos void* para o resultado do update
+	QFutureWatcher<void *> *categoryUpdateWatcher;
 
 signals:
 	void categoryUpdateFinished(bool success, const QString &gameName, const QString &errorString = QString());

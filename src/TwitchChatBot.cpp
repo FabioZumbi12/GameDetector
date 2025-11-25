@@ -14,12 +14,10 @@
 
 TwitchChatBot::TwitchChatBot()
 {
-	// Inicializa os watchers como membros da classe
 	gameIdWatcher = new QFutureWatcher<QString>(this);
 	categoryUpdateWatcher = new QFutureWatcher<void *>(this);
 	chatMessageWatcher = new QFutureWatcher<bool>(this);
 
-	// Conecta os sinais dos watchers a slots dedicados
 	connect(gameIdWatcher, &QFutureWatcher<QString>::finished, this, &TwitchChatBot::onGameIdReceived);
 	connect(categoryUpdateWatcher, &QFutureWatcher<void *>::finished, this, &TwitchChatBot::onCategoryUpdateCompleted);
 	connect(chatMessageWatcher, &QFutureWatcher<bool>::finished, this, &TwitchChatBot::onChatMessageSent);
@@ -27,7 +25,6 @@ TwitchChatBot::TwitchChatBot()
 
 TwitchChatBot::~TwitchChatBot()
 {
-	// Destrutor agora está vazio.
 }
 
 void TwitchChatBot::sendChatMessage(const QString &message)
@@ -38,7 +35,7 @@ void TwitchChatBot::sendChatMessage(const QString &message)
 	}
 
 	QString broadcasterId = ConfigManager::get().getUserId();
-	QString senderId = broadcasterId; // A mensagem é enviada pelo próprio dono do canal
+	QString senderId = broadcasterId;
 
 	if (broadcasterId.isEmpty()) {
 		blog(LOG_WARNING, "[GameDetector/ChatBot] Attempt to send message without authentication.");
@@ -46,7 +43,6 @@ void TwitchChatBot::sendChatMessage(const QString &message)
 		return;
 	}
 
-	// Armazena a mensagem para usar no slot de conclusão
 	chatMessageWatcher->setProperty("message", message);
 
 	QFuture<bool> future = TwitchAuthManager::get().sendChatMessage(broadcasterId, senderId, message);
@@ -58,26 +54,19 @@ bool TwitchChatBot::updateCategory(const QString &gameName)
 	blog(LOG_INFO, "[GameDetector/ChatBot] Changing category to: %s", gameName.toStdString().c_str());
 	if (lastSetCategoryName == gameName) {
 		blog(LOG_INFO, "[GameDetector/ChatBot] Category '%s' is already set. Skipping update.", gameName.toStdString().c_str());
-		// emit categoryUpdateFinished(true, gameName); // Notifica a UI que "deu certo"
 		return true;
 	}
 
-	// --------------------------
 	if (gameIdWatcher->isRunning() || categoryUpdateWatcher->isRunning()) {
 		blog(LOG_INFO, "[GameDetector/ChatBot] Category update already in progress. Ignoring new request.");
 		return false;
 	}
-	// --------------------------
-	// 1. Pede ao AuthManager o gameID
-	// --------------------------
 
 	if (TwitchAuthManager::get().getUserId().isEmpty()) {
 		blog(LOG_WARNING, "[GameDetector/ChatBot] Attempt to change category without authentication.");
 		emit authenticationRequired();
 		return false;
 	}
-
-	// Armazena o nome do jogo para usar nos slots de conclusão
 	gameIdWatcher->setProperty("gameName", gameName);
 
 	QFuture<QString> gameIdFuture = TwitchAuthManager::get().getGameId(gameName);
@@ -97,14 +86,10 @@ void TwitchChatBot::onGameIdReceived()
 		return;
 	}
 
-	// Armazena o nome do jogo para o próximo passo
 	categoryUpdateWatcher->setProperty("gameName", gameName);
 
-	// Inicia a atualização da categoria
 	QFuture<TwitchAuthManager::UpdateResult> updateFuture = TwitchAuthManager::get().updateChannelCategory(gameId);
 
-	// O QFutureWatcher não pode observar um QFuture<enum>, então usamos um truque
-	// com QFuture<void*> e esperamos o resultado em um contexto diferente.
 	QFuture<void *> adaptedFuture = QtConcurrent::run([updateFuture]() mutable -> void * {
 		updateFuture.waitForFinished();
 		return reinterpret_cast<void *>(updateFuture.result());

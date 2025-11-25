@@ -12,9 +12,6 @@ ConfigManager &ConfigManager::get()
 
 ConfigManager::ConfigManager(QObject *parent) : QObject(parent) {}
 
-// -------------------------------------------------------------------
-// LOAD
-// -------------------------------------------------------------------
 void ConfigManager::load()
 {
 	this->settings = obs_data_create_from_json_file(obs_module_config_path("config.json"));
@@ -28,13 +25,13 @@ void ConfigManager::load()
 		obs_data_set_string(settings, COMMAND_NO_GAME_KEY, "!setgame just chatting");
 		obs_data_set_bool(settings, EXECUTE_AUTOMATICALLY_KEY, false);
 		obs_data_set_int(settings, TWITCH_ACTION_MODE_KEY, 0);
-		obs_data_set_bool(settings, SCAN_STEAM_KEY, true); // Padrão
-		obs_data_set_bool(settings, SCAN_EPIC_KEY, true);  // Padrão
-		obs_data_set_bool(settings, SCAN_GOG_KEY, true);   // Padrão
-		obs_data_set_bool(settings, SCAN_UBISOFT_KEY, true); // Padrão
-		obs_data_set_bool(settings, SCAN_ON_STARTUP_KEY, true); // Padrão
-		obs_data_set_bool(settings, SCAN_PERIODICALLY_KEY, false); // Padrão
-		obs_data_set_int(settings, SCAN_PERIODICALLY_INTERVAL_KEY, 60); // Padrão
+		obs_data_set_bool(settings, SCAN_STEAM_KEY, true);
+		obs_data_set_bool(settings, SCAN_EPIC_KEY, true);
+		obs_data_set_bool(settings, SCAN_GOG_KEY, true);
+		obs_data_set_bool(settings, SCAN_UBISOFT_KEY, true);
+		obs_data_set_bool(settings, SCAN_ON_STARTUP_KEY, true);
+		obs_data_set_bool(settings, SCAN_PERIODICALLY_KEY, false);
+		obs_data_set_int(settings, SCAN_PERIODICALLY_INTERVAL_KEY, 60);
 		obs_data_set_string(settings, TWITCH_CHANNEL_LOGIN_KEY, "");
 
 		obs_data_array_t *empty_array = obs_data_array_create();
@@ -46,9 +43,6 @@ void ConfigManager::load()
 
 	blog(LOG_INFO, "[GameDetector] Settings loaded.");
 
-	// ---------------------------
-	// Garantir chaves existentes
-	// ---------------------------
 	if (!obs_data_has_user_value(settings, COMMAND_KEY))
 		obs_data_set_string(settings, COMMAND_KEY, "!setgame {game}");
 
@@ -101,9 +95,6 @@ void ConfigManager::load()
 	}
 }
 
-// -------------------------------------------------------------------
-// SAVE
-// -------------------------------------------------------------------
 void ConfigManager::setSettings(obs_data_t *settings_data)
 {
 	this->settings = settings_data;
@@ -131,7 +122,7 @@ void ConfigManager::save(obs_data_t *data)
 
 	if (obs_data_save_json(data, config_path_c)) {
 		blog(LOG_INFO, "[GameDetector] Config salva em: %s", config_path_c);
-		emit settingsSaved(); // Notifica que as configurações foram salvas
+		emit settingsSaved();
 	} else {
 		blog(LOG_WARNING, "[GameDetector] Failed to save config to: %s", config_path_c);
 	}
@@ -157,9 +148,6 @@ void ConfigManager::saveManualGames(obs_data_array_t *gamesArray)
 	save(settings);
 }
 
-// -------------------------------------------------------------------
-// GETTERS
-// -------------------------------------------------------------------
 obs_data_t *ConfigManager::getSettings() const
 {
 	return settings;
@@ -277,9 +265,6 @@ int ConfigManager::getScanPeriodicallyInterval() const
 	return (int)obs_data_get_int(settings, SCAN_PERIODICALLY_INTERVAL_KEY);
 }
 
-// -------------------------------------------------------------------
-// SETTERS
-// -------------------------------------------------------------------
 void ConfigManager::setToken(const QString &value)
 {
 	obs_data_set_string(settings, TOKEN_KEY, value.toUtf8().constData());

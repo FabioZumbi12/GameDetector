@@ -15,7 +15,6 @@
 #include <psapi.h>
 #include <vector>
 
-// Linka as bibliotecas necessárias do Windows no momento da compilação
 #pragma comment(lib, "psapi.lib")
 #pragma comment(lib, "version.lib")
 #endif
@@ -32,14 +31,11 @@ GameDetector::GameDetector(QObject *parent) : QObject(parent)
 	periodicScanTimer = new QTimer(this);
 	gameDbWatcher = new QFutureWatcher<QList<std::tuple<QString, QString, QString>>>(this);
 
-	// Conecta o sinal de timeout do timer ao nosso slot de escaneamento
 	connect(gameDbWatcher, &QFutureWatcher<QList<std::tuple<QString, QString, QString>>>::finished, this,
 		&GameDetector::onGameScanFinished);
 	connect(scanTimer, &QTimer::timeout, this, &GameDetector::scanProcesses);
 	connect(periodicScanTimer, &QTimer::timeout, this, &GameDetector::onPeriodicScanTriggered);
 
-	// Converte a lista de substrings para um QSet para buscas mais rápidas.
-	// Isso é feito uma vez no construtor para otimizar a função isExeIgnored.
 	const QStringList ignoreSubstrings = {
 		"7z", "presentmon", "dxsetup", "errorreporter", "crashpad", "buildpatchtool", "redmod", "dotnet", "bepinex",
 		"vcredist", "vc_redist", "redist", "prereq", "crashreport", "swarm", "unrealpak", "bink2", "bootstrap",
@@ -72,12 +68,11 @@ void GameDetector::rescanForGames(bool scanSteam, bool scanEpic, bool scanGog, b
 		return;
 	}
 
-	this->tempScanSteam = scanSteam; // Assumindo que estas variáveis de membro existem
-	this->tempScanEpic = scanEpic;   // ou serão adicionadas no header.
+	this->tempScanSteam = scanSteam;
+	this->tempScanEpic = scanEpic;
 	this->tempScanGog = scanGog;
 	this->tempScanUbisoft = scanUbisoft;
 
-	// Executes game search in a separate thread to avoid blocking the OBS UI
 	blog(LOG_INFO, "[GameDetector] Starting background game scan...");
 	QFuture<QList<std::tuple<QString, QString, QString>>> future =
 		QtConcurrent::run([this]() { return populateGameExecutables(); });
@@ -88,7 +83,6 @@ void GameDetector::onGameScanFinished()
 {
 	blog(LOG_INFO, "[GameDetector] Game scan completed. Starting process monitoring.");
 
-	// Emite o sinal com os jogos encontrados para a UI
 	emit automaticScanFinished(gameDbWatcher->result());
 
 }
@@ -102,7 +96,6 @@ void GameDetector::onSettingsChanged()
 
 	startProcessMonitoring();
 
-	// Recarrega a lista de jogos, pois pode ter sido alterada
 	loadGamesFromConfig();
 }
 
@@ -128,15 +121,12 @@ void GameDetector::setupPeriodicScan()
 void GameDetector::onPeriodicScanTriggered()
 {
 	blog(LOG_INFO, "[GameDetector] Periodic scan triggered.");
-	// Inicia a varredura usando as configurações salvas
 	bool scanSteam = ConfigManager::get().getScanSteam();
 	bool scanEpic = ConfigManager::get().getScanEpic();
 	bool scanGog = ConfigManager::get().getScanGog();
 	bool scanUbisoft = ConfigManager::get().getScanUbisoft();
 
 	rescanForGames(scanSteam, scanEpic, scanGog, scanUbisoft);
-
-	// Conecta para salvar os jogos encontrados neste scan periódico e depois se desconecta.
 	auto conn = std::make_shared<QMetaObject::Connection>();
 	*conn = connect(this, &GameDetector::automaticScanFinished,
 			[this, conn](const QList<std::tuple<QString, QString, QString>> &foundGames) {
@@ -154,8 +144,6 @@ void GameDetector::stopScanning()
 	}
 }
 
-// Lista de nomes de executáveis completos para ignorar.
-// A correspondência deve ser exata (ignorando maiúsculas/minúsculas).
 const QSet<QString> ignoreFullNames = {
 	"7za.exe", "compatibility.exe", "ispc.exe", "openssl.exe", "scc.exe",
 	"interchangeworker.exe", "zen.exe", "applicationframehost.exe", "shellexperiencehost.exe",
@@ -200,7 +188,6 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 	gameNameMap.clear();
 
 	if (this->tempScanSteam) {
-		// ==== STEAM ====
 		QSettings steamSettings("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Valve\\Steam", QSettings::NativeFormat);
 		QString steamPath = steamSettings.value("InstallPath").toString();
 		if (!steamPath.isEmpty()) {
@@ -220,7 +207,6 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 				}
 			}
 
-			// Percorre cada biblioteca
 			for (const QString &library : libraryPaths) {
 				if (!QDir(library).exists())
 					continue;
@@ -229,11 +215,9 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 				while (it.hasNext()) {
 					QString gameFolder = it.next();
 
-					// Procura o executável principal na pasta do jogo
 					QString exePath;
 					QString exeName;
 
-					// 1. Busca primeiro na pasta raiz do jogo
 					QDirIterator rootIt(gameFolder, QStringList() << "*.exe", QDir::Files, QDirIterator::NoIteratorFlags);
 					while (rootIt.hasNext()) {
 						QString candidate = rootIt.next();
@@ -245,7 +229,6 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 						}
 					}
 
-					// 2. Se não encontrou, busca em subpastas comuns de binários
 					if (exePath.isEmpty()) {
 						const QStringList commonBinarySubfolders = {"bin", "Binaries/Win64", "Binaries/Win32", "x64", "x86"};
 						for (const QString &subfolder : commonBinarySubfolders) {
@@ -268,7 +251,6 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 						}
 					}
 
-					// 3. Como último recurso, faz a busca recursiva (lógica antiga)
 					if (exePath.isEmpty()) {
 						QDirIterator recursiveIt(gameFolder, QStringList() << "*.exe", QDir::Files, QDirIterator::Subdirectories);
 						while (recursiveIt.hasNext()) {
@@ -285,8 +267,6 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 					if (exePath.isEmpty() || exeName.isEmpty())
 						continue;
 
-					// Sobe na árvore de diretórios para encontrar o nome real do jogo,
-					// ignorando pastas de binários.
 					QDir gameDir = QFileInfo(exePath).dir();
 					const QSet<QString> binaryFolderNames = {"bin", "binaries", "win64", "win_x64", "x64", "shipping"};
 					while(binaryFolderNames.contains(gameDir.dirName().toLower())) {
@@ -308,7 +288,6 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 	}
 
 	if (this->tempScanEpic) {
-		// ==== EPIC ====
 		bool foundViaRegistry = false;
 		QSettings epicSettings("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Epic Games\\EpicGamesLauncher", QSettings::NativeFormat);
 		QString appDataPath = epicSettings.value("AppDataPath").toString();
@@ -345,7 +324,6 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 				}
 			}
 		}
-		// Fallback para o método antigo se o registro falhar
 		if (!foundViaRegistry) {
 			QString epicFilePath = "C:/ProgramData/Epic/UnrealEngineLauncher/LauncherInstalled.dat";
 			QFile epicFile(epicFilePath);
@@ -365,7 +343,6 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 						QString exePath;
 						QString exeName;
 
-						// Lógica de busca de executável (mantida como fallback)
 						const QStringList commonBinarySubfolders = {"", "bin", "Binaries/Win64", "Binaries/Win32", "x64", "x86", "Shipping"};
 						for (const QString &subfolder : commonBinarySubfolders) {
 							QDir subDir(installPath + (subfolder.isEmpty() ? "" : "/" + subfolder));
@@ -397,10 +374,8 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 	}
 
 	if (this->tempScanGog) {
-		// ==== GOG Galaxy ====
 		QSettings gogSettings("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games", QSettings::NativeFormat);
 
-		// As subchaves são os IDs dos jogos
 		QStringList gameIds = gogSettings.childGroups();
 
 		for (const QString &gameId : gameIds) {
@@ -412,12 +387,10 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 
 			gogSettings.endGroup();
 
-			// Validação
 			if (exePath.isEmpty() || !QFileInfo::exists(exePath) || this->isExeIgnored(exeName)) {
 				continue;
 			}
 
-			// Adiciona se ainda não foi encontrado
 			if (!knownGameExes.contains(exeName)) {
 				foundGames.append({friendlyName, exeName, exePath});
 
@@ -430,7 +403,6 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 	}
 
 	if (this->tempScanUbisoft) {
-		// ==== Ubisoft Connect ====
 		QSettings ubiSettings("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Ubisoft\\Launcher\\Installs", QSettings::NativeFormat);
 		QStringList gameIds = ubiSettings.childGroups();
 
@@ -453,7 +425,6 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 			QString exePath;
 			QString exeName;
 
-			// Lógica de busca de executável
 			const QStringList commonBinarySubfolders = {"", "bin", "bin_plus", "bin_x64"};
 			for (const QString &subfolder : commonBinarySubfolders) {
 				QDir subDir(installPath + (subfolder.isEmpty() ? "" : "/" + subfolder));
@@ -534,18 +505,16 @@ void GameDetector::mergeAndSaveGames(const QList<std::tuple<QString, QString, QS
 bool GameDetector::isExeIgnored(const QString &exeName) {
 	const QString lowerExeName = exeName.toLower();
 
-	// 1. Verifica se o nome completo está na lista de ignorados (verificação rápida)
 	if (ignoreFullNames.contains(lowerExeName)) {
 		return true;
 	}
 
-	// 2. Verifica se o nome contém alguma das substrings a serem ignoradas
 	for (const QString &substring : ignoreSubstringsSet) {
 		if (lowerExeName.contains(substring)) {
 			return true;
 		}
 	}
-	return false; // Otimizado usando QSet no construtor
+	return false;
 }
 
 void GameDetector::loadGamesFromConfig()
@@ -553,7 +522,6 @@ void GameDetector::loadGamesFromConfig()
 	knownGameExes.clear();
 	gameNameMap.clear();
 
-	// 3. Carregar jogos manuais da configuração
 	obs_data_array_t *manualGames = ConfigManager::get().getManualGames();
 	if (manualGames) {
 		size_t count = obs_data_array_count(manualGames);
@@ -592,17 +560,13 @@ void GameDetector::scanProcesses()
 					if (GetModuleFileNameExW(hProcess, hMod, processPath, sizeof(processPath) / sizeof(wchar_t))) {
 						QString processName = QFileInfo(QString::fromWCharArray(processPath)).fileName();
 
-						// Nova lógica de detecção: verifica se o nome do processo está na nossa lista de jogos conhecidos
-						// Esta verificação é rápida (usando QSet) e evita a criação de QFileInfo para cada processo.
 						if (knownGameExes.contains(processName)) {
 
 							QString qProcessPath = QString::fromWCharArray(processPath);
-							// Usa o nome manual se existir, senão pega a descrição do arquivo
 							QString friendlyName = gameNameMap.value(processName);
 							if (friendlyName.isEmpty()) {
 								friendlyName = getFileDescription(qProcessPath);
 							}
-							// Se é um jogo diferente do que já estava rodando, emite o sinal
 							if (processName != currentGameProcess) {
 								currentGameProcess = processName;
 								blog(LOG_INFO, "[GameDetector] Game detected: %s (Process: %s)", friendlyName.toStdString().c_str(), processName.toStdString().c_str());
@@ -610,8 +574,7 @@ void GameDetector::scanProcesses()
 							}
 							gameFoundThisScan = true;
 							CloseHandle(hProcess);
-							// Para a busca ao encontrar o primeiro jogo
-							goto cleanup; // The use of goto here is acceptable to break out of nested loops
+							goto cleanup;
 						}
 					}
 				}
@@ -621,7 +584,6 @@ void GameDetector::scanProcesses()
 	}
 
 cleanup:
-	// Se nenhum jogo foi encontrado nesta varredura, mas havia um antes, emite o sinal de "noGameDetected"
 	if (!gameFoundThisScan && !currentGameProcess.isEmpty()) {
 		blog(LOG_INFO, "[GameDetector] Game '%s' is no longer running.", currentGameProcess.toStdString().c_str());
 		currentGameProcess.clear();

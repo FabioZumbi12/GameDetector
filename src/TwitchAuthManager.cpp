@@ -12,9 +12,6 @@
 #include <QJsonDocument>
 #include <QUrlQuery>
 
-// ------------------------------
-// CURL Write Callback
-// ------------------------------
 static size_t auth_curl_write_callback(void *contents, size_t size, size_t nmemb, void *userp)
 {
 	size_t realsize = size * nmemb;
@@ -22,21 +19,16 @@ static size_t auth_curl_write_callback(void *contents, size_t size, size_t nmemb
 	return realsize;
 }
 
-// ------------------------------
-// Singleton
-// ------------------------------
 TwitchAuthManager::TwitchAuthManager(QObject *parent) : QObject(parent)
 {
 	server = new QTcpServer(this);
 
 	connect(server, &QTcpServer::newConnection, this, &TwitchAuthManager::onNewConnection);
 
-	// Carrega valores do Config
 	auto settings = ConfigManager::get().getSettings();
 	accessToken = obs_data_get_string(settings, "twitch_access_token");
 	userId = obs_data_get_string(settings, "twitch_user_id");
 	connect(this, &TwitchAuthManager::reauthenticationNeeded, this, &TwitchAuthManager::handleReauthenticationRequest);
-	// Conecta o novo sinal ao slot de limpeza
 	connect(this, &TwitchAuthManager::authenticationDataNeedsClearing, this, &TwitchAuthManager::clearAuthentication, Qt::QueuedConnection);
 }
 
@@ -45,10 +37,6 @@ TwitchAuthManager::~TwitchAuthManager()
 	if (server->isListening())
 		server->close();
 }
-
-// ------------------------------
-// Início da autenticação
-// ------------------------------
 void TwitchAuthManager::startAuthentication()
 {
 	if (isAuthenticating) {
@@ -75,34 +63,24 @@ void TwitchAuthManager::startAuthentication()
 	authUrl.setQuery(query);
 
 	QDesktopServices::openUrl(authUrl);
-	isAuthenticating = true; // Define a flag para indicar que a autenticação está em andamento
+	isAuthenticating = true;
 }
 
-// ------------------------------
-// Limpa dados de autenticação em memória
-// ------------------------------
 void TwitchAuthManager::clearAuthentication()
 {
 	accessToken.clear();
-	userId.clear(); // Limpa o ID do usuário em memória
+	userId.clear();
 	ConfigManager::get().setToken("");
 	ConfigManager::get().setUserId("");
-	ConfigManager::get().setTwitchChannelLogin(""); // Limpa o login do canal também
-	ConfigManager::get().save(ConfigManager::get().getSettings()); // Saves cleared settings
+	ConfigManager::get().setTwitchChannelLogin("");
+	ConfigManager::get().save(ConfigManager::get().getSettings());
 	blog(LOG_INFO, "[GameDetector/Auth] In-memory and persisted authentication data cleared.");
 }
-
-// ------------------------------
-// Novo navegador conectado
-// ------------------------------
 void TwitchAuthManager::onNewConnection()
 {
-	// Cada conexão é tratada de forma independente para evitar problemas com múltiplas requisições (ex: favicon.ico)
 	QTcpSocket *clientSocket = server->nextPendingConnection();
 	if (!clientSocket)
 		return;
-
-	// Conecta o sinal readyRead a uma lambda que captura o socket atual
 	connect(clientSocket, &QTcpSocket::readyRead, this, [this, clientSocket]() {
 		if (!clientSocket || !clientSocket->isValid())
 			return;
@@ -114,15 +92,13 @@ void TwitchAuthManager::onNewConnection()
 			return;
 		}
 
-		QString firstLine = reqLines.first(); // Ex: "GET /?token=... HTTP/1.1"
+		QString firstLine = reqLines.first();
 		QString path = firstLine.split(" ")[1];
 
-		// A URL pode vir como /?token=... ou /#token=... ou apenas /
 		QUrl url(path);
 		QString token = QUrlQuery(url.query()).queryItemValue("token");
 
 		if (!token.isEmpty()) {
-			// 2) O token chegou via redirecionamento do JavaScript
 
 			QString successPage = QString(
 				"<!DOCTYPE html><html><head><title>%1</title></head><body style='font-family: sans-serif; background-color: #f4f4f4; text-align: center; padding-top: 50px;'>"
@@ -130,19 +106,17 @@ void TwitchAuthManager::onNewConnection()
 				"<script>setTimeout(function() { window.close(); }, 3000);</script></body></html>")
 				.arg(obs_module_text("Auth.Page.Title"), obs_module_text("Auth.Page.Success.Title"), obs_module_text("Auth.Page.Success.Message"));
 
-			// Responde ao navegador e fecha o servidor e o socket
 			QString httpResponse = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n" + successPage;
 			clientSocket->write(httpResponse.toUtf8());
 			clientSocket->disconnectFromHost();
-			server->close(); // Servidor cumpriu sua missão
+			server->close();
  
-			isAuthenticating = false; // Authentication has finished
+			isAuthenticating = false;
 			if (token.isEmpty()) {
 				emit authenticationFinished(false, obs_module_text("Auth.Error.EmptyToken"));
 				return;
 			}
  
-			// Salva o token e obtém o ID do usuário
 			auto settings = ConfigManager::get().getSettings();
 			accessToken = token;
 			auto [newUserId, loginName] = getTokenUserInfo();
@@ -152,7 +126,7 @@ void TwitchAuthManager::onNewConnection()
 				obs_data_set_string(settings, "twitch_access_token", accessToken.toStdString().c_str());
 				obs_data_set_string(settings, "twitch_user_id", userId.toStdString().c_str());
 				obs_data_set_string(settings, "twitch_channel_login", loginName.toStdString().c_str());
-				obs_data_set_string(settings, "twitch_refresh_token", ""); // Limpa refresh token antigo
+				obs_data_set_string(settings, "twitch_refresh_token", "");
 				ConfigManager::get().save(settings);
 				emit authenticationFinished(true, loginName);
 			} else {
@@ -162,7 +136,7 @@ void TwitchAuthManager::onNewConnection()
 			}
  
 		} else if (path.startsWith("/")) {
-			isAuthenticating = false; // Authentication has finished (if it gets here without a token, it's a failure)
+			isAuthenticating = false;
  
 			QString errorPage = QString(
 				"<!DOCTYPE html><html><head><title>%1</title></head><body>"
@@ -175,24 +149,18 @@ void TwitchAuthManager::onNewConnection()
 				"</script>"
 				"</body></html>").arg(obs_module_text("Auth.Page.Title"), obs_module_text("Auth.Page.Error.Title"), obs_module_text("Auth.Page.Error.Message"));
  
-			// 1) First request, serves the HTML with JavaScript to extract the token
 			QString httpResponse = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n" + errorPage;
 			clientSocket->write(httpResponse.toUtf8());
 			clientSocket->disconnectFromHost();
 		} else {
-			// Ignora outras requisições (ex: favicon.ico)
 			clientSocket->write("HTTP/1.1 404 Not Found\r\n\r\n");
 			clientSocket->disconnectFromHost();
 		}
 	});
 
-	// Garante que o socket seja deletado quando a conexão for fechada
 	connect(clientSocket, &QTcpSocket::disconnected, clientSocket, &QTcpSocket::deleteLater);
 }
 
-// ------------------------------
-// Retorna o access token atual
-// ------------------------------
 QString TwitchAuthManager::getAccessToken()
 {
 	return accessToken;
@@ -208,9 +176,6 @@ QString TwitchAuthManager::getUserId()
 	return userId;
 }
 
-// ------------------------------
-// Curl GET
-// ------------------------------
 QFuture<std::pair<long, QString>> TwitchAuthManager::performGET(const QString &url, const QString &token)
 {
 	return QtConcurrent::run([this, url, token]() -> std::pair<long, QString> {
@@ -232,7 +197,7 @@ QFuture<std::pair<long, QString>> TwitchAuthManager::performGET(const QString &u
 		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, auth_curl_write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-		curl_easy_setopt(curl, CURLOPT_FAILONERROR, 0L); // Não falhar em erros HTTP, para podermos ler o corpo
+		curl_easy_setopt(curl, CURLOPT_FAILONERROR, 0L);
 
 		CURLcode res = curl_easy_perform(curl);
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
@@ -246,14 +211,13 @@ QFuture<std::pair<long, QString>> TwitchAuthManager::performGET(const QString &u
 		}
 
 		if (http_code < 200 || http_code >= 300) {
-			if (http_code == 401) { // 401 Unauthorized
+			if (http_code == 401) {
 				blog(LOG_WARNING, "[GameDetector/Auth] Invalid token (401 Unauthorized) in GET request to %s. Initiating reauthentication process.", url.toStdString().c_str());
-				emit authenticationDataNeedsClearing(); // Emite o sinal para limpar os dados
-				emit reauthenticationNeeded();          // Emite o sinal para notificar a UI
-				return {http_code, ""}; // Retorna erro e resposta vazia
-			} else if (http_code == 429) { // 429 Too Many Requests
+				emit authenticationDataNeedsClearing();
+				emit reauthenticationNeeded();
+				return {http_code, ""};
+			} else if (http_code == 429) {
 				blog(LOG_WARNING, "[GameDetector/Auth] Twitch API rate limit exceeded (429 Too Many Requests). Please wait a moment and try again.");
-				// Apenas logamos o aviso. A requisição falhará e o usuário pode tentar novamente mais tarde.
 			}
 			blog(LOG_WARNING, "[GameDetector/Auth] Error in GET request to Twitch API (Status: %ld): %s", http_code, response.c_str());
 		}
@@ -262,9 +226,6 @@ QFuture<std::pair<long, QString>> TwitchAuthManager::performGET(const QString &u
 	});
 }
 
-// ------------------------------
-// Curl PATCH
-// ------------------------------
 QFuture<std::pair<long, QString>> TwitchAuthManager::performPATCH(const QString &url, const QJsonObject &body, const QString &token)
 {
 	return QtConcurrent::run([this, url, body, token]() -> std::pair<long, QString> {
@@ -292,7 +253,7 @@ QFuture<std::pair<long, QString>> TwitchAuthManager::performPATCH(const QString 
 		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json.c_str());
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, auth_curl_write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-		curl_easy_setopt(curl, CURLOPT_FAILONERROR, 0L); // Não falhar em erros HTTP, para podermos ler o corpo
+		curl_easy_setopt(curl, CURLOPT_FAILONERROR, 0L);
 
 		CURLcode res = curl_easy_perform(curl);
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
@@ -305,16 +266,14 @@ QFuture<std::pair<long, QString>> TwitchAuthManager::performPATCH(const QString 
 			return {0, ""};
 		}
 
-		// Log an error if the response is not successful (2xx)
 		if (http_code < 200 || http_code >= 300) {
-			if (http_code == 401) { // 401 Unauthorized
+			if (http_code == 401) {
 				blog(LOG_WARNING, "[GameDetector/Auth] Invalid token (401 Unauthorized) in PATCH request to %s. Initiating reauthentication process.", url.toStdString().c_str());
-				emit authenticationDataNeedsClearing(); // Emite o sinal para limpar os dados
-				emit reauthenticationNeeded();          // Emite o sinal para notificar a UI
-				return {http_code, ""}; // Retorna erro e resposta vazia
-			} else if (http_code == 429) { // 429 Too Many Requests
+				emit authenticationDataNeedsClearing();
+				emit reauthenticationNeeded();
+				return {http_code, ""};
+			} else if (http_code == 429) {
 				blog(LOG_WARNING, "[GameDetector/Auth] Twitch API rate limit exceeded (429 Too Many Requests). Please wait a moment and try again.");
-				// Apenas logamos o aviso. A requisição falhará e o usuário pode tentar novamente mais tarde.
 			}
 			blog(LOG_WARNING, "[GameDetector/Auth] Error in PATCH request to Twitch API (Status: %ld): %s", http_code, response.c_str());
 		}
@@ -323,9 +282,6 @@ QFuture<std::pair<long, QString>> TwitchAuthManager::performPATCH(const QString 
 	});
 }
 
-// ------------------------------
-// Curl POST
-// ------------------------------
 QFuture<std::pair<long, QString>> TwitchAuthManager::performPOST(const QString &url, const QJsonObject &body, const QString &token)
 {
 	return QtConcurrent::run([this, url, body, token]() -> std::pair<long, QString> {
@@ -367,14 +323,13 @@ QFuture<std::pair<long, QString>> TwitchAuthManager::performPOST(const QString &
 		}
 
 		if (http_code < 200 || http_code >= 300) {
-			if (http_code == 401) { // 401 Unauthorized
+			if (http_code == 401) {
 				blog(LOG_WARNING, "[GameDetector/Auth] Invalid token (401 Unauthorized) in POST request to %s. Initiating reauthentication process.", url.toStdString().c_str());
-				emit authenticationDataNeedsClearing(); // Emite o sinal para limpar os dados
-				emit reauthenticationNeeded();          // Emite o sinal para notificar a UI
-				return {http_code, ""}; // Retorna erro e resposta vazia
-			} else if (http_code == 429) { // 429 Too Many Requests
+				emit authenticationDataNeedsClearing();
+				emit reauthenticationNeeded();
+				return {http_code, ""};
+			} else if (http_code == 429) {
 				blog(LOG_WARNING, "[GameDetector/Auth] Twitch API rate limit exceeded (429 Too Many Requests). Please wait a moment and try again.");
-				// Apenas logamos o aviso. A requisição falhará e o usuário pode tentar novamente mais tarde.
 			}
 			blog(LOG_WARNING, "[GameDetector/Auth] Error in POST request to Twitch API (Status: %ld): %s", http_code, response.c_str());
 		}
@@ -383,17 +338,12 @@ QFuture<std::pair<long, QString>> TwitchAuthManager::performPOST(const QString &
 	});
 }
 
-// ------------------------------
-// Obtém UserID do token
-// ------------------------------
 std::pair<QString, QString> TwitchAuthManager::getTokenUserInfo()
 {
 	if (accessToken.isEmpty())
 		return {"", ""};
 
 	QString url = "https://api.twitch.tv/helix/users";
-	// This method is still synchronous because it is used during the initial authentication flow.
-	// Converting it to asynchronous would require a major refactoring in the authentication flow.
 	auto future = performGET(url, accessToken);
 	future.waitForFinished();
 	auto [http_code, json] = future.result();
@@ -411,9 +361,6 @@ std::pair<QString, QString> TwitchAuthManager::getTokenUserInfo()
 	return {"", ""};
 }
 
-// ------------------------------
-// Procura GameID por nome
-// ------------------------------
 QFuture<QString> TwitchAuthManager::getGameId(const QString &gameName)
 {
 	QString url = "https://api.twitch.tv/helix/games?name=" + QUrl::toPercentEncoding(gameName);
@@ -439,9 +386,6 @@ QFuture<QString> TwitchAuthManager::getGameId(const QString &gameName)
 	});
 }
 
-// ------------------------------
-// Atualiza categoria do canal
-// ------------------------------
 QFuture<TwitchAuthManager::UpdateResult> TwitchAuthManager::updateChannelCategory(const QString &gameId)
 {
 	QString url = "https://api.twitch.tv/helix/channels?broadcaster_id=" + userId;
@@ -463,9 +407,6 @@ QFuture<TwitchAuthManager::UpdateResult> TwitchAuthManager::updateChannelCategor
 	});
 }
 
-// ------------------------------
-// Envia mensagem para o chat
-// ------------------------------
 QFuture<bool> TwitchAuthManager::sendChatMessage(const QString &broadcasterId, const QString &senderId, const QString &message)
 {
 	if (broadcasterId.isEmpty() || senderId.isEmpty() || message.isEmpty()) {
@@ -492,11 +433,6 @@ QFuture<bool> TwitchAuthManager::sendChatMessage(const QString &broadcasterId, c
 	});
 }
 
-// ------------------------------
-// Slot para lidar com a necessidade de reautenticação
-// ------------------------------
 void TwitchAuthManager::handleReauthenticationRequest()
 {
-	// The authentication flow is started by the UI (Settings or Dock) after user confirmation.
-	// This signal just notifies the UI that it needs to happen.
 }

@@ -28,13 +28,11 @@ public:
 		return instance;
 	}
 
-	// Tokens
 	QString getAccessToken();
 	QString getClientId();
 	QString getUserId();
 	std::pair<QString, QString> getTokenUserInfo();
 
-	// === HELIX (Async) === //
 	QFuture<QString> getGameId(const QString &gameName);
 	QFuture<UpdateResult> updateChannelCategory(const QString &gameId);
 	QFuture<bool> sendChatMessage(const QString &broadcasterId, const QString &senderId, const QString &message);
@@ -60,15 +58,13 @@ private:
 	QFuture<std::pair<long, QString>> performPATCH(const QString &url, const QJsonObject &body, const QString &token);
 	QFuture<std::pair<long, QString>> performPOST(const QString &url, const QJsonObject &body, const QString &token);
 
-	// Estrutura OAuth interna
 	QString accessToken;
 	QString userId;
-	bool isAuthenticating = false; // Flag para evitar múltiplas tentativas de autenticação
+	bool isAuthenticating = false;
 
-	// Local HTTP Server
 	QTcpServer *server = nullptr;
 
-	static constexpr const char *CLIENT_ID = "wl4mx2l4sgmdvpwoek6pjronpor9en"; // Para fluxo implícito
+	static constexpr const char *CLIENT_ID = "wl4mx2l4sgmdvpwoek6pjronpor9en";
 	static constexpr const char *REDIRECT_URI = "http://localhost:30000/";
 };
 

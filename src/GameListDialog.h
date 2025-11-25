@@ -5,7 +5,6 @@
 #include <tuple>
 #include <QList>
 
-// Forward declarations
 class QTableWidget;
 class QPushButton;
 class QCheckBox;
@@ -22,8 +21,6 @@ public:
 private:
 	void loadGames();
 	void saveGames();
-
-	// UI Elements
 	QTableWidget *manualGamesTable = nullptr;
 	QPushButton *addGameButton = nullptr;
 	QPushButton *clearTableButton = nullptr;
