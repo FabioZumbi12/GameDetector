@@ -1,7 +1,8 @@
 [English](README.md) | [Português (BR)](README.pt-BR.md) 
 
 # 🎮 Game Detector OBS Plugin
-Plugin para detectar jogos instalados e integrar com Twitch · Suporte para OBS Studio
+Plugin para detectar jogos instalados e integrar com Twitch  
+OBS Plugins Page: https://obsproject.com/forum/resources/game-detector.2260/
 
 ---
 
