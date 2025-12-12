@@ -32,7 +32,7 @@ GameDetectorDock::GameDetectorDock(QWidget *parent) : QWidget(parent)
 	detectedGameName = "Just Chatting";
 	statusLabel = new QLabel(obs_module_text("Status.Waiting"));
 	statusLabel->setWordWrap(true);
-	mainLayout->addWidget(statusLabel); 
+	mainLayout->addWidget(statusLabel);
 
 	QFormLayout *executionLayout = new QFormLayout();
 
@@ -155,14 +155,14 @@ void GameDetectorDock::loadSettingsFromConfig()
 
 void GameDetectorDock::onCategoryUpdateFinished(bool success, const QString &gameName, const QString &errorString)
 {
-	cooldownUpdateTimer->stop(); // Pausa o timer do cooldown para mostrar a mensagem
+	cooldownUpdateTimer->stop();
 	if (success) {
 		statusLabel->setText(QString(obs_module_text("Dock.CategoryUpdated")).arg(gameName));
 	} else {
 		statusLabel->setText(QString(errorString).arg(gameName));
 	}
 
-	QTimer::singleShot(3000, this, &GameDetectorDock::restoreStatusLabel); // Restaura o status após 3 segundos
+	QTimer::singleShot(3000, this, &GameDetectorDock::restoreStatusLabel);
 }
 
 void GameDetectorDock::checkWarningsAndStatus()
@@ -198,17 +198,12 @@ void GameDetectorDock::restoreStatusLabel()
 	if (cooldownUpdateTimer->isActive()) {
 		// Se o timer já estiver ativo, não faz nada para não interromper a contagem
 	} else if (TwitchChatBot::get().isOnCooldown()) {
-		cooldownUpdateTimer->start(1000); // Retoma o timer do cooldown
+		cooldownUpdateTimer->start(1000);
 	}
 
-	if (detectedGameName != "Just Chatting")
+	if (detectedGameName != "Just Chatting") {
 		statusLabel->setText(QString(obs_module_text("Status.Playing")).arg(detectedGameName));
-	else if (TwitchChatBot::get().getLastSetCategory() == "Just Chatting") {
-		statusLabel->setText(obs_module_text("Status.Waiting"));
-	} else if (!TwitchChatBot::get().getLastSetCategory().isEmpty()) {
-		statusLabel->setText(QString(obs_module_text("Status.Playing")).arg(TwitchChatBot::get().getLastSetCategory()));
-	}
-	else {
+	} else {
 		statusLabel->setText(obs_module_text("Status.Waiting"));
 	}
 }
@@ -246,8 +241,8 @@ void GameDetectorDock::onCooldownStarted(int seconds)
 void GameDetectorDock::onCooldownFinished()
 {
 	cooldownUpdateTimer->stop();
-	GameDetector::get().startScanning(); // Retoma a detecção de jogos
-	checkWarningsAndStatus(); // Força uma verificação imediata do estado
+	GameDetector::get().startScanning();
+	checkWarningsAndStatus();
 }
 
 void GameDetectorDock::updateCooldownLabel()
@@ -262,7 +257,7 @@ void GameDetectorDock::updateCooldownLabel()
 					 .arg(currentGameText).arg(timeStr));
 		cooldownUpdateTimer->setProperty("remaining", remaining - 1);
 	} else {
-		onCooldownFinished(); // O contador chegou a zero, agora finaliza.
+		onCooldownFinished();
 	}
 }
 
