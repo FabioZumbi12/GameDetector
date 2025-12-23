@@ -6,9 +6,9 @@
 AppName=Game Detector OBS Plugin
 AppVersion=1.0.0
 AppPublisher=FabioZumbi12
-AppPublisherURL=https://github.com/FabioZumbi12/GameDetector
-AppSupportURL=https://github.com/FabioZumbi12/GameDetector/issues
-AppUpdatesURL=https://github.com/FabioZumbi12/GameDetector/releases
+AppPublisherURL=https://github.com/FabioZumbi12/game-detector
+AppSupportURL=https://github.com/FabioZumbi12/game-detector/issues
+AppUpdatesURL=https://github.com/FabioZumbi12/game-detector/releases
 
 ; --- Opções do Instalador ---
 ; DefaultDirName será sobrescrito pela seção [Code] para o caminho do OBS Studio.
@@ -31,6 +31,14 @@ UninstallDisplayIcon={uninstallexe}
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
+[CustomMessages]
+english.RemoveConfig=Do you also want to remove the additional configuration files?
+brazilianportuguese.RemoveConfig=Deseja também remover os arquivos de configuração adicionais?
+english.OBSNotFound=OBS Studio installation not found automatically.#13#10You will be able to select the folder manually.
+brazilianportuguese.OBSNotFound=A instalação do OBS Studio não foi encontrada automaticamente.#13#10Você poderá selecionar a pasta manualmente.
+english.LaunchOBS=Launch OBS Studio now
+brazilianportuguese.LaunchOBS=Iniciar OBS Studio agora
+
 [Files]
 ; Copia a DLL do plugin para a pasta de plugins do OBS.
 Source: "setup\obs-plugins\64bit\game-detector.dll"; DestDir: "{app}\obs-plugins\64bit\"; Flags: ignoreversion
@@ -40,7 +48,7 @@ Source: "setup\data\obs-plugins\game-detector\*"; DestDir: "{app}\data\obs-plugi
 
 [Run]
 ; Opcional: Oferece a opção de abrir o OBS Studio após a instalação.
-Filename: "{app}\bin\64bit\obs64.exe"; Description: "Iniciar OBS Studio agora"; Flags: nowait postinstall shellexec
+Filename: "{app}\bin\64bit\obs64.exe"; Description: "{cm:LaunchOBS}"; Flags: nowait postinstall shellexec
 
 [UninstallDelete]
 ; Garante que todos os arquivos e pastas sejam removidos na desinstalação.
@@ -58,11 +66,7 @@ begin
   end
   else
   begin
-    MsgBox(
-      'A instalação do OBS Studio não foi encontrada automaticamente.'#13#10 +
-      'Você poderá selecionar a pasta manualmente.',
-      mbInformation, MB_OK
-    );
+    MsgBox(CustomMessage('OBSNotFound'), mbInformation, MB_OK);
   end;
 
   Result := True;
@@ -71,7 +75,7 @@ end;
 procedure InitializeWizard();
 begin
   if ObsPath <> '' then
-    WizardForm.DirEdit.Text := ObsPath;  // AGORA É SEGURO
+    WizardForm.DirEdit.Text := ObsPath;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
@@ -85,8 +89,7 @@ begin
     if DirExists(TargetDir) then
     begin
       if MsgBox(
-        'Deseja também remover os arquivos de configuração adicionais?' #13#10 +
-        TargetDir,
+        CustomMessage('RemoveConfig') + #13#10 + TargetDir,
         mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
       begin
         DelTree(TargetDir, True, True, True);
