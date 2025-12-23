@@ -3,6 +3,8 @@
  [English](README.md) | [Português (BR)](README.pt-BR.md) 
 
 # 🎮 Game Detector OBS Plugin
+[![GitHub Release](https://img.shields.io/github/v/release/FabioZumbi12/game-detector)](https://github.com/FabioZumbi12/game-detector/releases/latest)  
+
 Plugin para detectar jogos instalados e integrar com Twitch  
 OBS Plugins Page: https://obsproject.com/forum/resources/game-detector.2260/
 
