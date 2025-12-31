@@ -73,6 +73,7 @@ void GameDetector::rescanForGames(bool scanSteam, bool scanEpic, bool scanGog, b
 	this->tempScanGog = scanGog;
 	this->tempScanUbisoft = scanUbisoft;
 
+	abortScan = false;
 	blog(LOG_INFO, "[GameDetector] Starting background game scan...");
 	QFuture<QList<std::tuple<QString, QString, QString>>> future =
 		QtConcurrent::run([this]() { return populateGameExecutables(); });
@@ -138,6 +139,11 @@ void GameDetector::onPeriodicScanTriggered()
 
 void GameDetector::stopScanning()
 {
+	abortScan = true;
+	if (gameDbWatcher->isRunning()) {
+		blog(LOG_INFO, "[GameDetector] Waiting for game scan to finish...");
+		gameDbWatcher->waitForFinished();
+	}
 	if (scanTimer->isActive()) {
 		blog(LOG_INFO, "[GameDetector] Stopping process scanning.");
 		scanTimer->stop();
@@ -190,6 +196,8 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 	knownGameExes.clear();
 	gameNameMap.clear();
 
+	if (abortScan) return foundGames;
+
 	if (this->tempScanSteam) {
 		QSettings steamSettings("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Valve\\Steam", QSettings::NativeFormat);
 		QString steamPath = steamSettings.value("InstallPath").toString();
@@ -211,11 +219,13 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 			}
 
 			for (const QString &library : libraryPaths) {
+				if (abortScan) break;
 				if (!QDir(library).exists())
 					continue;
 
 				QDirIterator it(library, QDir::Dirs | QDir::NoDotAndDotDot);
 				while (it.hasNext()) {
+					if (abortScan) break;
 					QString gameFolder = it.next();
 
 					QString exePath;
@@ -290,6 +300,8 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 		}
 	}
 
+	if (abortScan) return foundGames;
+
 	if (this->tempScanEpic) {
 		bool foundViaRegistry = false;
 		QSettings epicSettings("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Epic Games\\EpicGamesLauncher", QSettings::NativeFormat);
@@ -300,6 +312,7 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 			QDirIterator it(manifestsDir, QStringList() << "*.item", QDir::Files);
 
 			while (it.hasNext()) {
+				if (abortScan) break;
 				QString manifestPath = it.next();
 				QFile manifestFile(manifestPath);
 				if (manifestFile.open(QIODevice::ReadOnly)) {
@@ -337,6 +350,7 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 				if (doc.isObject()) {
 					QJsonArray arr = doc.object()["InstallationList"].toArray();
 					for (const QJsonValue &v : arr) {
+						if (abortScan) break;
 						QString installPath = v.toObject()["InstallLocation"].toString();
 						QString friendlyName = v.toObject()["DisplayName"].toString();
 
@@ -376,12 +390,15 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 		}
 	}
 
+	if (abortScan) return foundGames;
+
 	if (this->tempScanGog) {
 		QSettings gogSettings("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games", QSettings::NativeFormat);
 
 		QStringList gameIds = gogSettings.childGroups();
 
 		for (const QString &gameId : gameIds) {
+			if (abortScan) break;
 			gogSettings.beginGroup(gameId);
 
 			QString friendlyName = gogSettings.value("gameName").toString();
@@ -405,11 +422,14 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 		}
 	}
 
+	if (abortScan) return foundGames;
+
 	if (this->tempScanUbisoft) {
 		QSettings ubiSettings("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Ubisoft\\Launcher\\Installs", QSettings::NativeFormat);
 		QStringList gameIds = ubiSettings.childGroups();
 
 		for (const QString &gameId : gameIds) {
+			if (abortScan) break;
 			ubiSettings.beginGroup(gameId);
 
 			QString installPath = ubiSettings.value("InstallDir").toString();

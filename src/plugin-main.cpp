@@ -9,6 +9,7 @@
 
 #include "GameDetectorSettingsDialog.h"
 #include "GameDetectorDock.h"
+#include "PlatformManager.h"
 #include "TwitchAuthManager.h"
 
 static obs_hotkey_id g_set_game_hotkey_id;

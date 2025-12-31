@@ -10,6 +10,7 @@
 
 class QTcpServer;
 class QTcpSocket;
+class QTimer;
 
 class TwitchAuthManager : public QObject {
 	Q_OBJECT
@@ -41,9 +42,11 @@ signals:
 	void authenticationFinished(bool success, const QString &info); // Sinal emitido quando o fluxo de autenticação via navegador termina
 	void reauthenticationNeeded();                               // Sinal emitido quando um token inválido é detectado em uma chamada de API
 	void authenticationDataNeedsClearing();                      // Sinal para limpar os dados de autenticação de forma segura entre threads
+	void authenticationTimerTick(int remainingSeconds);
 
 private slots:
 	void onNewConnection();
+	void onAuthTimerTick();
 
 public slots:
 	void startAuthentication(int mode = -1);
@@ -63,6 +66,8 @@ private:
 	bool isAuthenticating = false;
 
 	QTcpServer *server = nullptr;
+	QTimer *authTimeoutTimer = nullptr;
+	int authRemainingSeconds = 0;
 
 	static constexpr const char *CLIENT_ID = "wl4mx2l4sgmdvpwoek6pjronpor9en";
 	static constexpr const char *REDIRECT_URI = "http://localhost:30000/";

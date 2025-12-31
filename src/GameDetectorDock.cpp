@@ -1,9 +1,10 @@
 ﻿#include "GameDetectorDock.h"
 #include "GameDetector.h"
-#include "TwitchChatBot.h"
+#include "PlatformManager.h"
 #include "TwitchAuthManager.h"
 #include "ConfigManager.h"
 #include "GameDetectorSettingsDialog.h"
+#include "TrovoAuthManager.h"
 
 #include <QComboBox>
 #include <QFrame>
@@ -64,13 +65,13 @@ GameDetectorDock::GameDetectorDock(QWidget *parent) : QWidget(parent)
 	connect(setJustChattingButton, &QPushButton::clicked, this, &GameDetectorDock::onSetJustChattingClicked);
 	connect(&GameDetector::get(), &GameDetector::gameDetected, this, &GameDetectorDock::onGameDetected);
 	connect(&GameDetector::get(), &GameDetector::noGameDetected, this, &GameDetectorDock::onNoGameDetected);
-	connect(&TwitchChatBot::get(), &TwitchChatBot::categoryUpdateFinished, this,
+	connect(&PlatformManager::get(), &PlatformManager::categoryUpdateFinished, this,
 		QOverload<bool, const QString &, const QString &>::of(&GameDetectorDock::onCategoryUpdateFinished));
-	connect(&TwitchChatBot::get(), &TwitchChatBot::authenticationRequired, this,
+	connect(&PlatformManager::get(), &PlatformManager::authenticationRequired, this,
 		&GameDetectorDock::onAuthenticationRequired);
 
-	connect(&TwitchChatBot::get(), &TwitchChatBot::cooldownStarted, this, &GameDetectorDock::onCooldownStarted);
-	connect(&TwitchChatBot::get(), &TwitchChatBot::cooldownFinished, this, &GameDetectorDock::onCooldownFinished);
+	connect(&PlatformManager::get(), &PlatformManager::cooldownStarted, this, &GameDetectorDock::onCooldownStarted);
+	connect(&PlatformManager::get(), &PlatformManager::cooldownFinished, this, &GameDetectorDock::onCooldownFinished);
 
 
 	connect(autoExecuteCheckbox, &QCheckBox::checkStateChanged, this, &GameDetectorDock::onSettingsChanged);
@@ -129,20 +130,20 @@ void GameDetectorDock::onNoGameDetected()
 
 void GameDetectorDock::onExecuteCommandClicked()
 {
-	if (TwitchChatBot::get().isOnCooldown()) {
+	if (PlatformManager::get().isOnCooldown()) {
 		return;
 	}
 	this->desiredCategory = detectedGameName;
-	TwitchChatBot::get().updateCategory(desiredCategory);
+	PlatformManager::get().updateCategory(desiredCategory);
 }
 
 void GameDetectorDock::onSetJustChattingClicked()
 {
-	if (TwitchChatBot::get().isOnCooldown()) {
+	if (PlatformManager::get().isOnCooldown()) {
 		return;
 	}
 	this->desiredCategory = "Just Chatting";
-	TwitchChatBot::get().updateCategory(desiredCategory);
+	PlatformManager::get().updateCategory(desiredCategory);
 }
 
 void GameDetectorDock::loadSettingsFromConfig()
@@ -172,22 +173,28 @@ void GameDetectorDock::checkWarningsAndStatus()
         return;
 	}
 
-	bool notConnected = ConfigManager::get().getUserId().isEmpty();
-	if (notConnected) {
+	bool twitchConnected = !ConfigManager::get().getTwitchUserId().isEmpty();
+	bool trovoConnected = false;
+	auto trovoManager = PlatformManager::get().findChild<TrovoAuthManager*>();
+	if (trovoManager) {
+		trovoConnected = trovoManager->isAuthenticated();
+	}
+
+	if (!twitchConnected && !trovoConnected) {
 		statusLabel->setText(obs_module_text("Status.Warning.NotConnected"));
 		return;
 	}
 
-	if (TwitchChatBot::get().isOnCooldown()) {
+	if (PlatformManager::get().isOnCooldown()) {
 		if (!cooldownUpdateTimer->isActive()) {
-			int remaining = TwitchChatBot::get().getCooldownRemaining();
+			int remaining = PlatformManager::get().getCooldownRemaining();
 			if (remaining > 0) onCooldownStarted(remaining);
 		}
 		return;
 	}
 
 	if (autoExecuteCheckbox->isChecked()) {
-		TwitchChatBot::get().updateCategory(desiredCategory);
+		PlatformManager::get().updateCategory(desiredCategory);
 	}
 
 	restoreStatusLabel();
@@ -197,7 +204,7 @@ void GameDetectorDock::restoreStatusLabel()
 {
 	if (cooldownUpdateTimer->isActive()) {
 		// Se o timer já estiver ativo, não faz nada para não interromper a contagem
-	} else if (TwitchChatBot::get().isOnCooldown()) {
+	} else if (PlatformManager::get().isOnCooldown()) {
 		cooldownUpdateTimer->start(1000);
 	}
 
